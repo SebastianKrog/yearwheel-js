@@ -154,6 +154,13 @@ assert.equal(a.removeSubcategory('conference','missing'),false);
 for(let i=0;i<8;i++)a.addSubcategory('funding');assert.throws(()=>a.addSubcategory('funding'),/eight/);
 assert.deepEqual(a.prepareCSV(a.csv(a.getPlan().events)).events.map(e=>[e.name,e.subcategory,e.color]),a.getPlan().events.map(e=>[e.name,e.subcategory,e.color]));
 
+// Display names have no generated ordinal prefix, including dense SVG labels.
+a.setPlan(base({events:[{category:'activity',name:'Plain label',start:3},{category:'funding',name:'Another label',start:6,end:8}]}));
+a.openEditor(); // existing edit flow still works with unnumbered names
+const unnumberedScene=a.makeScene().filter(o=>o.type==='text'&&o.id);
+assert(unnumberedScene.length>0);assert(unnumberedScene.every(o=>!/^\d+\.?$|^\d+\. /.test(o.value)));
+$('search').value='';$('filter').value='';$('search').oninput();assert($('rows').innerHTML.includes('>Plain label</button>'));assert(!$('rows').innerHTML.includes('>1. Plain label'));
+
 // Startup must restore an old saved plan before rendering (including migrations).
 const bootPrelude=fs.readFileSync(__filename,'utf8').split("const a=require")[0];
 const savedOld={year:2026,center:'2026',start:1,end:53,events:[{category:'conference',date:5,name:'Saved sentinel',color:'darkblue'}]};
