@@ -380,7 +380,7 @@ function latex(){
       const parts=segments.get(e.id),labelPart=parts.reduce((best,part)=>!best||part.count>best.count?part:best,null);
       for(const part of parts){
         const thickness=(s.rout-s.rin)/part.count,rin=s.rin+part.lane*thickness,rout=rin+thickness;
-        const options=[String.raw`domain/.expanded=\wcdomain{`+(part.start-plan.start)+'/'+count+'}{'+(part.end-plan.start)+'/'+count+'}',`radius={${fmt(rin)}}{${fmt(rout)}}`,'slices style={'+colorName(eventColor(e))+',draw=lightgray}'];
+        const options=[String.raw`domain/.expanded=\wcdomain{`+(part.start-plan.start)+'/'+count+'}{'+(part.end-plan.start)+'/'+count+'}',`radius={${fmt(rin)}}{${fmt(rout)}}`,'slices style={'+colorName(eventColor(e))+',draw=lightgray}','total count=1'];
         out.push('% EVENT SEGMENT '+JSON.stringify({name:e.name,start:part.start,end:part.end-1,lane:part.lane,count:part.count}));
         if(e.start===e.end){
           const width=fmt(Math.max(.1,thickness-.2)),height=fmt((rin+rout)*Math.sin(Math.PI*(358/360)/count)*28.45274);
