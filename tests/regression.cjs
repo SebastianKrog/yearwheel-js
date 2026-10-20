@@ -256,6 +256,20 @@ assert.equal(base({labelSize:11,labelSizeVersion:2}).labelSize,11);assert.equal(
 a.setPlan(base({labelSize:14}));assert(a.latex().includes('\\renewcommand{\\ywbasefontsize}{10}'));
 a.setPlan(base({labelSize:20,labelSizeVersion:2,events:[{name:'Scale test',category:'conference',start:10,end:12}]}));assert(a.latex().includes('\\renewcommand{\\ywbasefontsize}{14.286}'));assert(a.latex().includes('\\fontsize{14.286}'));
 
+// Month appearance is shared by SVG and TeX, and retained in backups.
+for(const color of ['rainbow','white','grey','black'])for(const style of ['arrows','plain']){
+ const appearance=base({monthColor:color,monthStyle:style});a.setPlan(appearance);
+ const shapes=a.makeScene(),months=shapes.filter(o=>o.type==='poly'&&o.pts.every(([x,y])=>Math.hypot(x-500,y-500)>454));assert(months.length>=12);
+ assert(months.every(o=>color==='rainbow'?a.monthColors.includes(o.fill):o.fill===a.monthFill(0)));
+ assert.equal(shapes.find(o=>o.type==='text'&&o.value==='January').fill,a.monthTextColor());
+ const source=a.latex();assert.equal(source.includes('slices arrow={1}{0}'),style==='arrows');assert(source.includes(style==='plain'?'gap polar=0':'gap polar=-4'));
+ if(color!=='rainbow')assert(source.includes('{HTML}{'+a.monthFill(0).slice(1)+'}'));
+ const roundTrip=base(JSON.parse(JSON.stringify(appearance)));assert.equal(roundTrip.monthColor,color);assert.equal(roundTrip.monthStyle,style);
+}
+a.setPlan(base({monthStyle:'arrows'}));const arrowPoints=a.monthSector(455,481,0,30);a.setPlan(base({monthStyle:'plain'}));assert.notDeepEqual(a.monthSector(455,481,0,30),arrowPoints);
+assert.equal(base().monthColor,'rainbow');assert.equal(base().monthStyle,'arrows');assert.equal(base({monthColor:'invalid',monthStyle:'invalid'}).monthColor,'rainbow');
+a.setPlan(base());$('monthColor').value='black';$('monthColor').listeners.change();assert.equal(a.getPlan().monthColor,'black');$('monthStyle').value='plain';$('monthStyle').listeners.change();assert.equal(a.getPlan().monthStyle,'plain');a.resetDefaults();assert.equal(a.getPlan().monthColor,'rainbow');assert.equal(a.getPlan().monthStyle,'arrows');
+
 // Startup must restore an old saved plan before rendering (including migrations).
 const bootPrelude=fs.readFileSync(__filename,'utf8').split("const a=require")[0];
 const savedOld={year:2026,center:'2026',start:1,end:53,events:[{category:'conference',date:5,name:'Saved sentinel',color:'darkblue'}]};

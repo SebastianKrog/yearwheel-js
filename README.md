@@ -54,3 +54,5 @@ Settings can be resized horizontally; text and controls enlarge with the panel. 
 Overlapping events keep a constant lane and proportional height throughout each overlap group in the SVG and TeX. Automatic text orientation switches full-height labels to tangential at 2 weeks in the outer ring, 4 in the middle, and 6 in the inner ring. Settings expose editable outer/middle/inner week thresholds. Each event can override Auto with Tangential or Radial in its editor. These overrides and thresholds are retained in JSON backups; CSV keeps its existing seven columns and imports events as Auto.
 
 Event label size defaults to 14, centred on the 8–20 slider range. The old default of 11 migrates to 14; other saved choices are retained within the new range. SVG and TeX event fonts scale with the slider; automatic fitting still keeps complete labels inside their available space.
+
+Compact month controls choose Rainbow (default), White, Grey or Black fills and Arrows (default) or Plain headers. SVG and TeX use the same options and readable contrasting month text. JSON backups retain both choices.
