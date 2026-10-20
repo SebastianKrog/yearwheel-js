@@ -17,7 +17,7 @@ p.highlightGroups=[{weeks:'2-4',color:'#ff0000'},{weeks:'4, 8',color:'#0000ff'}]
 const restored=base(JSON.parse(JSON.stringify(p)));assert.deepEqual(restored.categories,p.categories);assert.deepEqual(restored.highlightGroups,p.highlightGroups);assert.equal(restored.events[0].color,'highlight');
 const before=p.events.map(e=>[e.name,e.start,e.end,e.color]);const round=a.prepareCSV(a.csv(p.events));assert.deepEqual(round.events.map(e=>[e.name,e.start,e.end,e.color]),before);
 a.setPlan(base());const custom=a.prepareCSV('category,date,name,color\nClinical,5,A,highlight\nTeaching,6,B,');assert.equal(custom.categories[0].name,'Clinical');assert.equal(custom.categories[1].name,'Teaching');assert.equal(custom.events[0].category,'activity');assert.equal(a.prepareCSV('date,name\n4,No category').events[0].category,'activity');assert.throws(()=>a.prepareCSV('category,date,name\na,1,A\nb,2,B\nc,3,C\nd,4,D'));
-a.setPlan(base({...custom}));const id=a.getPlan().events[0].id;$('rows').onclick({target:{closest(selector){return selector==='[data-modal-edit]'?{dataset:{modalEdit:id}}:null}}});assert.equal($('editor').open,true);assert.equal($('event-name').value,'A');assert.equal($('event-color-mode').value,'normal');
+a.setPlan(base({...custom}));const id=a.getPlan().events[0].id;$('rows').onclick({target:{closest(selector){return selector==='[data-modal-edit]'?{dataset:{modalEdit:id}}:null}}});assert.equal($('editor').open,true);assert.equal($('event-name').value,'A');assert.equal($('event-color-mode').value,'normal');assert.equal($('event-subcategory-row').hidden,false);assert.equal($('event-subcategory').disabled,true);
 // Editor lists are outer-to-inner while saved category arrays preserve old inner-to-outer order.
 const ordered=base({events:[{category:'activity',date:5,name:'Activity ring',color:'highlight'},{category:'funding',date:6,name:'Funding ring'},{category:'conference',date:7,name:'Conference ring'}]});a.setPlan(ordered);
 assert.deepEqual(a.categoryDisplayOrder().map(c=>c.id),['conference','funding','activity']);
@@ -94,7 +94,7 @@ const subPlan=base({events:[
 assert.deepEqual(subPlan.events.slice(2).map(e=>a.eventColor(e)),['#98bcd9','#98bcd9','#bfa3ec','#bfa3ec','#123456']);
 assert.equal(a.activeCategories().length,3);assert.equal((a.latex().match(/% CATEGORY /g)||[]).length,3);
 assert($('categories').innerHTML.includes('data-subcategory="purple"'));
-a.openEditor(subPlan.events[4].id);assert.equal($('event-subcategory').value,'purple');assert.equal($('event-subcategory-row').hidden,false);assert($('event-subcategory').innerHTML.includes('Blue'));
+a.openEditor(subPlan.events[4].id);assert.equal($('event-subcategory').value,'purple');assert.equal($('event-subcategory-row').hidden,false);assert.equal($('event-subcategory').disabled,false);assert($('event-subcategory').innerHTML.includes('Blue'));
 $('event-subcategory').value='blue';$('event-form').onsubmit({preventDefault(){}});assert.equal(a.getPlan().events[4].subcategory,'blue');
 // Edits to a child colour affect inheriting events; custom overrides stay exact.
 $('categories').onchange({target:{dataset:{subcategoryField:'color'},value:'#aa55cc',closest(selector){return selector==='[data-category]'?{dataset:{category:'conference'}}:{dataset:{subcategory:'blue'}}}}});

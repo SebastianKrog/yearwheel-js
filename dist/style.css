@@ -94,3 +94,6 @@ main{max-width:none;padding:12px 20px 0}.workspace{grid-template-columns:340px m
 
 .orientation-settings{border:0;padding:0;margin:10px 0;min-width:0}.orientation-settings legend{padding:0;font-size:10px;font-weight:550}.orientation-limits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.orientation-limits label{margin:5px 0;font-size:10px}.orientation-limits input{padding:6px 7px!important;margin-top:3px!important;font-size:12px}.orientation-settings small{display:block;font-size:9px;line-height:1.4}
 @media screen and (min-width:801px){.workspace>aside .orientation-settings legend{font-size:.833em}.workspace>aside .orientation-limits label{font-size:.833em}.workspace>aside .orientation-limits input{font-size:1.2em}}
+
+#editor{width:560px}.event-classification{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.event-classification label{min-width:0;margin:10px 0}.event-classification select{font-size:12px;padding:9px 7px;min-width:0;height:39px}.event-classification select:disabled{background:#f2f4f0;color:#8b958e;cursor:not-allowed}#custom-color{margin-top:2px}
+@media(max-width:430px){.event-classification{gap:7px}.event-classification select{font-size:11px;padding:8px 3px}.event-classification label{font-size:11px}}

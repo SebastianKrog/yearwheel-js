@@ -176,7 +176,7 @@ function updateSchedule(){for(const id of ['event-start','event-end']){$(id).dis
 $('unscheduled').onchange=updateSchedule;
 function updateDates(){if($('unscheduled').checked){$('event-dates').textContent='Unscheduled events stay in the list until you assign a week.';return}const a=Number($('event-start').value),b=Number($('event-end').value);$('event-end').min=a;$('event-dates').textContent=a>=1&&b>=a&&b<=weeksIn(plan.year)?dateRange(a,b):'Choose a valid week range.'}
 $('event-start').oninput=()=>{if(Number($('event-end').value)<Number($('event-start').value))$('event-end').value=$('event-start').value;updateDates()};$('event-end').oninput=updateDates;$('event-category').onchange=()=>{updateSubcategories();updateColorMode()};$('event-subcategory').onchange=updateColorMode;
-function updateSubcategories(value=''){const c=categoryMap()[$('event-category').value],subs=c?.subcategories||[];$('event-subcategory-row').hidden=!subs.length;$('event-subcategory').innerHTML='<option value="">None</option>'+subs.map(sub=>`<option value="${esc(sub.id)}">${esc(sub.name)}</option>`).join('');$('event-subcategory').value=value}
+function updateSubcategories(value=''){const c=categoryMap()[$('event-category').value],subs=c?.subcategories||[];$('event-subcategory-row').hidden=false;$('event-subcategory').disabled=!subs.length;$('event-subcategory').innerHTML='<option value="">None</option>'+subs.map(sub=>`<option value="${esc(sub.id)}">${esc(sub.name)}</option>`).join('');$('event-subcategory').value=value}
 function updateColorMode(){const mode=$('event-color-mode').value;$('custom-color').hidden=mode!=='custom'}
 $('event-color-mode').onchange=updateColorMode;
 
