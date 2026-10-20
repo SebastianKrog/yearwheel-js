@@ -359,8 +359,10 @@ function latex(){
   const wrap=(values,per)=>values.map((v,i)=>String(v)+(i===values.length-1?'':','+((i+1)%per===0?'\n':''))).join('');
   out.push('% INNER CIRCLE',circle(cats.length===2?4.8:2.4));
   cats.forEach((cat,c)=>{
-    const s=slots[c],events=plan.events.filter(e=>e.category===cat.id&&e.start!==null&&e.start<=plan.end&&e.end>=plan.start);
-    const points=events.filter(e=>e.start===e.end),spans=events.filter(e=>e.end>e.start);
+    const s=slots[c],events=plan.events.filter(e=>e.category===cat.id&&e.start!==null&&e.start<=plan.end&&e.end>=plan.start).sort((a,b)=>a.start-b.start||b.end-a.end);
+    const segments=svgEventSegments(events,plan.start,plan.end);
+    const points=events.filter(e=>e.start===e.end&&segments.get(e.id).every(segment=>segment.count===1));
+    const layered=events.filter(e=>!points.includes(e));
     // A week's last event supplies its fill; all unique names remain visible.
     const labels=new Map(),fills=new Map();
     points.forEach(e=>{const i=index(e.start);if(!labels.has(i))labels.set(i,new Set());labels.get(i).add(wheelText(e.name).replace(/\//g,String.raw`/\allowbreak{}`));fills.set(i,colorName(eventColor(e)))});
@@ -371,13 +373,27 @@ function latex(){
     for(const [color,weeks] of groups)opts.push(`slices style{${weeks.join(',')}}={${color},draw=lightgray}`);
     for(const [i,names] of [...labels].sort((a,b)=>a[0]-b[0]))opts.push(`wheel data{${i}}={\\ywfitlabel{${labelWidth}cm}{${labelHeight}pt}{${[...names].join('\\\\')}}}`);
     opts.push('total count='+count);out.push('% CATEGORY '+(c+1),chart(opts));
-    // The supplied R/template uses three fixed radial sub-bands for spans.
-    spans.forEach((e,i)=>{
-      const start=Math.max(plan.start,e.start),end=Math.min(plan.end,e.end),band=i%3,thickness=(s.rout-s.rin)/3;
-      // Start at the beginning of the first week; end after the inclusive last week.
-      const from=index(start)-1,to=index(end);
-      out.push(chart([String.raw`arc data=\WCvarA`,String.raw`domain/.expanded=\wcdomain{`+from+'/'+count+'}{'+to+'/'+count+'}',`radius={${fmt(s.rin+band*thickness)}}{${fmt(s.rin+(band+1)*thickness)}}`,'slices style='+colorName(eventColor(e))],'{'+arcText(e.name)+'}'));
-    });
+    // Share the SVG's local radial allocation. Paint all fills before labels
+    // so a neighbouring segment cannot cover part of a curved label.
+    const spanLabels=[];
+    for(const e of layered){
+      const parts=segments.get(e.id),labelPart=parts.reduce((best,part)=>!best||part.count>best.count?part:best,null);
+      for(const part of parts){
+        const thickness=(s.rout-s.rin)/part.count,rin=s.rin+part.lane*thickness,rout=rin+thickness;
+        const options=[String.raw`domain/.expanded=\wcdomain{`+(part.start-plan.start)+'/'+count+'}{'+(part.end-plan.start)+'/'+count+'}',`radius={${fmt(rin)}}{${fmt(rout)}}`,'slices style={'+colorName(eventColor(e))+',draw=lightgray}'];
+        out.push('% EVENT SEGMENT '+JSON.stringify({name:e.name,start:part.start,end:part.end-1,lane:part.lane,count:part.count}));
+        if(e.start===e.end){
+          const width=fmt(Math.max(.1,thickness-.2)),height=fmt((rin+rout)*Math.sin(Math.PI*(358/360)/count)*28.45274);
+          options.push('wheel data{1}={\\ywfitlabel{'+width+'cm}{'+height+'pt}{'+wheelText(e.name).replace(/\//g,String.raw`/\allowbreak{}`)+'}}','total count=1');
+          out.push(chart(options));
+        }else out.push(chart(options));
+      }
+      if(e.start!==e.end){
+        const thickness=(s.rout-s.rin)/labelPart.count,rin=s.rin+labelPart.lane*thickness;
+        spanLabels.push(chart([String.raw`arc data=\WCvarA`,String.raw`domain/.expanded=\wcdomain{`+(Math.max(plan.start,e.start)-plan.start)+'/'+count+'}{'+(Math.min(plan.end,e.end)+1-plan.start)+'/'+count+'}',`radius={${fmt(rin)}}{${fmt(rin+thickness)}}`,'slices style={fill=none,draw=none}'],'{'+arcText(e.name)+'}'));
+      }
+    }
+    out.push(...spanLabels);
     out.push(chart(['arc data={'+arcText(cat.name)+'}','arc data style={text color=gray}',`radius={${s.tin}}{${s.tout}}`,'slices style={fill=none}','total count=6']));
   });
   out.push(circle(9.6));
