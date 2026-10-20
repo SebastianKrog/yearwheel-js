@@ -222,6 +222,19 @@ a.setPlan(base());$('orientation-outer').value='5';$('orientation-outer').listen
 assert.deepEqual(base().orientationLimits,{outer:2,middle:4,inner:6});assert.equal(base({events:[{name:'Old event',start:1}]}).events[0].orientation,'auto');
 const migratedOrientation=base({eventOrientation:'radial',events:[{name:'Old global override',start:1}]});assert.equal(migratedOrientation.events[0].orientation,'radial');assert(!('eventOrientation' in migratedOrientation));
 
+// SVG fitting retains all words, honours explicit breaks and never stretches glyphs.
+const fittedReview=a.fitEventLabel('Review',28,40,11);assert.deepEqual(fittedReview.lines,['Review']);assert(fittedReview.size<11);
+assert.deepEqual(a.fitEventLabel('Summer conference',40,40,11,undefined,false).lines,['Summer conference']);assert.deepEqual(a.fitEventLabel('First\nSecond',30,40,11,undefined,false).lines,['First','Second']);
+const fittedApplication=a.fitEventLabel('Application deadline',85,20,11);assert.equal(fittedApplication.lines.join(' '),'Application deadline');assert(fittedApplication.size<=11);
+assert.deepEqual(a.fitEventLabel('First\nSecond',100,100,11).lines,['First','Second']);
+assert.deepEqual(a.fitEventLabel(String.raw`First\\Second`,100,100,11).lines,['First','Second']);
+const crowdedLabel=a.fitEventLabel('Unbreakableword Another word',3,2,11);assert.equal(crowdedLabel.lines.join(' '),'Unbreakableword Another word');assert(crowdedLabel.size>0&&crowdedLabel.size<1);
+a.loadExample();const fittedExample=a.getPlan();assert.equal(fittedExample.events.find(e=>e.name==='Review').color,'#dc974f');assert(!fittedExample.events.some(e=>e.name.includes('Mid-project')));
+const fitScene=a.makeScene();for(const e of fittedExample.events.filter(e=>e.start!==null)){
+ const labels=fitScene.filter(o=>o.type==='text'&&o.id===e.id);assert(labels.length>0,e.name);assert.equal(labels.map(o=>o.value).join(' ').replace(/\s+/g,' '),e.name.replace(/\s+/g,' '));assert(labels.every(o=>!o.value.includes('…')));
+}
+assert.equal(fitScene.filter(o=>o.type==='text'&&o.id===fittedExample.events.find(e=>e.name==='Review').id).length,1);
+
 // Startup must restore an old saved plan before rendering (including migrations).
 const bootPrelude=fs.readFileSync(__filename,'utf8').split("const a=require")[0];
 const savedOld={year:2026,center:'2026',start:1,end:53,events:[{category:'conference',date:5,name:'Saved sentinel',color:'darkblue'}]};

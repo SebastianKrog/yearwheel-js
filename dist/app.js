@@ -120,6 +120,30 @@ function tangentialEvent(e,laneCount,ringIndex,ringCount){
   return laneCount>1?weeks>1:weeks>=threshold;
 }
 
+let labelMeasureContext;
+function labelTextWidth(text,size){
+  if(labelMeasureContext===undefined){try{labelMeasureContext=document.createElement?.('canvas').getContext('2d')||null}catch{labelMeasureContext=null}}
+  if(labelMeasureContext){labelMeasureContext.font=size+'px Arial';return labelMeasureContext.measureText(text).width}
+  return Array.from(text).reduce((sum,c)=>sum+(/[ilI.,'!|]/.test(c)?.28:/[MW@]/.test(c)?.9:.6),0)*size;
+}
+// Keep every word and explicit newline. Fit by reducing the font uniformly;
+// never split a word, truncate a label, or stretch its letter shapes.
+function fitEventLabel(value,width,height,preferred,measure=labelTextWidth,wrapWords=true){
+  width=Math.max(1,width);height=Math.max(1,height);
+  const paragraphs=String(value).split(/\\\\|\r?\n/);
+  const wrap=size=>!wrapWords?paragraphs.map(p=>p.trim()):paragraphs.flatMap(paragraph=>{
+    const words=paragraph.trim().split(/\s+/),lines=[];let line='';
+    for(const word of words){const next=line?line+' '+word:word;if(line&&measure(next,size)>width){lines.push(line);line=word}else line=next}
+    lines.push(line);return lines;
+  });
+  for(let size=preferred;size>=.5;size-=.25){
+    const lines=wrap(size);
+    if(lines.length*size*1.15<=height&&lines.every(line=>measure(line,size)<=width))return {lines,size};
+  }
+  const lines=wrap(.5),widest=Math.max(1,...lines.map(line=>measure(line,.5)));
+  return {lines,size:.5*Math.min(1,width/widest,height/(lines.length*.5*1.15))};
+}
+
 function makeScene(){const s=[],n=plan.end-plan.start+1,angle=x=>1+358*(x-plan.start)/n;
 const poly=(pts,fill,stroke='#ffffff',width=.7,id=null)=>s.push({type:'poly',pts,fill,stroke,width,id});
 const text=(x,y,value,size=10,fill='#52675c',rotate=0,weight=false,id=null)=>s.push({type:'text',x,y,value,size,fill,rotate,weight,id});
@@ -141,19 +165,9 @@ for(const e of events){
   const rotation=tangential?tangentRotation(mid):(mid>180?mid-270:mid-90);
   const arcRoom=((ri+ro)/2)*(b-a)*Math.PI/180-6;
   const width=tangential?arcRoom:thick-9,height=tangential?thick-8:arcRoom;
-  const limit=Math.max(2,Math.floor(width/(plan.labelSize*.55))),maxLines=Math.max(1,Math.min(4,Math.floor(height/(plan.labelSize*1.15))));
-  let lines=[];const explicit=e.name.split(/\\\\|\r?\n/);
-  for(let part=0;part<explicit.length;part++){
-    let remaining=explicit[part];
-    do{
-      if(lines.length>=maxLines){if(lines.length)lines[lines.length-1]=lines.at(-1).slice(0,Math.max(1,limit-1))+'…';break}
-      if(remaining.length<=limit){lines.push(remaining);remaining=''}else{let cut=remaining.lastIndexOf(' ',limit);if(cut<limit*.4)cut=limit;lines.push(remaining.slice(0,cut));remaining=remaining.slice(cut).trim()}
-    }while(remaining);
-    if(lines.length>=maxLines&&(remaining||part<explicit.length-1)){lines[lines.length-1]=lines.at(-1).slice(0,Math.max(1,limit-1))+'…';break}
-  }
-  if(thick<25||width<15)lines=[];
+  const {lines,size}=fitEventLabel(e.name,width,height,plan.labelSize,undefined,!tangential);
   const [cx,cy]=point((ri+ro)/2,mid),rr=rotation*Math.PI/180;
-  lines.forEach((line,i)=>{const dy=(i-(lines.length-1)/2)*plan.labelSize*1.15;text(cx-Math.sin(rr)*dy,cy+Math.cos(rr)*dy,line,plan.labelSize,labelColor(eventColor(e)),rotation,false,e.id)});
+  lines.forEach((line,i)=>{const dy=(i-(lines.length-1)/2)*size*1.15;text(cx-Math.sin(rr)*dy,cy+Math.cos(rr)*dy,line,size,labelColor(eventColor(e)),rotation,false,e.id)});
 }
 radial(c.r+103.5,180,c.name,8,'#6e8176');}
 for(let w=plan.start;w<=plan.end;w++){const mid=angle(w+.5),p1=point(427,angle(w)),p2=point(448,angle(w));s.push({type:'line',pts:[p1,p2],stroke:'#cbd5cd',width:.6});radial(439,mid,String(w),9,h.get(w)||'#5f7467',tangentRotation(mid),h.has(w));}
@@ -256,7 +270,7 @@ function exampleCSV(){
     ['Project planning','Activities','',2,4,'','A three-week span; end week is included.'],
     ['Team workshop','Activities','',6,'','highlight','Single-week event with inherited event colour.'],
     ['Project delivery','Activities','',18,25,'','Overlaps with the review during weeks 22–23.'],
-    ['Mid-project\nreview','Activities','',22,23,'#54b8b4','An explicit line break and a custom hex colour.'],
+    ['Review','Activities','',22,23,'#dc974f','Custom orange event colour; overlaps with Project delivery.'],
     ['Evaluation','Activities','',38,41,'','Default category event colour.'],
     ['Budget review','Activities','','','','','Date not yet decided.'],
     ['Funding call','Funding','',8,12,'','Default funding event colour.'],
@@ -523,4 +537,4 @@ function initSettingsResize(){
 }
 initSettingsResize();
 let printFilters;window.addEventListener('beforeprint',()=>{printFilters=[$('search').value,$('filter').value];$('search').value='';$('filter').value='';renderRows()});window.addEventListener('afterprint',()=>{if(printFilters){[$('search').value,$('filter').value]=printFilters;renderRows()}});
-if(typeof module!=='undefined')module.exports={validateOrientationLimits,tangentialEvent,settingsSizing,showUnscheduled,addSubcategory,removeSubcategory,exampleCSV,loadExample,applyInlinePatch,hexToHsv,hsvToHex,resetDefaults,svgEventSegments,tangentRotation,categoryDisplayOrder,reorderCategory,openInOverleaf,monthColors,validColor,eventColor,prepareCSV,highlights,activeCategories,defaultCategories,openEditor,selectTab,parseWeek,monday,weeksIn,validateEvent,validatePlan,parseCSV,csv,texEscape,latex,makeScene,setPlan:p=>{plan=p;scene=makeScene()},getPlan:()=>plan};
+if(typeof module!=='undefined')module.exports={fitEventLabel,validateOrientationLimits,tangentialEvent,settingsSizing,showUnscheduled,addSubcategory,removeSubcategory,exampleCSV,loadExample,applyInlinePatch,hexToHsv,hsvToHex,resetDefaults,svgEventSegments,tangentRotation,categoryDisplayOrder,reorderCategory,openInOverleaf,monthColors,validColor,eventColor,prepareCSV,highlights,activeCategories,defaultCategories,openEditor,selectTab,parseWeek,monday,weeksIn,validateEvent,validatePlan,parseCSV,csv,texEscape,latex,makeScene,setPlan:p=>{plan=p;scene=makeScene()},getPlan:()=>plan};
