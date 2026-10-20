@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs');
 global.crypto=require('node:crypto').webcrypto;
-const elements=new Map();global.document={getElementById(id){if(!elements.has(id))elements.set(id,{value:'',checked:false,dataset:{},addEventListener(){},setAttribute(k,v){this[k]=v},focus(){},showModal(){this.open=true},close(){this.open=false}});return elements.get(id)},addEventListener(){}};global.window={addEventListener(){}};global.localStorage={getItem(){return null},setItem(){}};global.setTimeout=()=>0;global.confirm=()=>true;
+const elements=new Map();global.document={getElementById(id){if(!elements.has(id))elements.set(id,{value:'',checked:false,dataset:{},listeners:{},addEventListener(type,fn){this.listeners[type]=fn},setAttribute(k,v){this[k]=v},focus(){},showModal(){this.open=true},close(){this.open=false}});return elements.get(id)},addEventListener(){}};global.window={addEventListener(){}};global.localStorage={getItem(){return null},setItem(){}};global.setTimeout=()=>0;global.confirm=()=>true;
 const a=require('../dist/app.js'),$=id=>document.getElementById(id);
 assert.deepEqual(a.settingsSizing(100,1200),{width:280,max:640,scale:1});
 assert.deepEqual(a.settingsSizing(580,1200),{width:580,max:640,scale:1.4});
@@ -218,6 +218,7 @@ assert.equal(a.csv(overridden.events).split('\r\n')[0].replace(/^\ufeff/,''),'na
 assert.equal(a.prepareCSV('name,start,orientation\nCSV event,2,radial').events[0].orientation,'auto');
 for(const invalid of [0,54,2.5,'bad'])assert.throws(()=>base({orientationLimits:{inner:invalid}}));
 a.setPlan(base({orientationLimits:{outer:1}}));assert.equal(a.tangentialEvent({start:1,end:1,orientation:'auto'},1,2,3),true);
+a.setPlan(base());$('orientation-outer').value='5';$('orientation-outer').listeners.input();assert.equal(a.getPlan().orientationLimits.outer,5);$('orientation-outer').value='';$('orientation-outer').listeners.input();assert.equal(a.getPlan().orientationLimits.outer,5);$('orientation-outer').listeners.change();assert.equal($('orientation-outer').value,5);
 assert.deepEqual(base().orientationLimits,{outer:2,middle:4,inner:6});assert.equal(base({events:[{name:'Old event',start:1}]}).events[0].orientation,'auto');
 const migratedOrientation=base({eventOrientation:'radial',events:[{name:'Old global override',start:1}]});assert.equal(migratedOrientation.events[0].orientation,'radial');assert(!('eventOrientation' in migratedOrientation));
 
