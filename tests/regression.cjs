@@ -47,20 +47,64 @@ const templatePlan=base({events:[
 ],highlightGroups:[{weeks:'5,8',color:'red'},{weeks:'8',color:'blue'}]});
 a.setPlan(templatePlan);let tex=a.latex();
 for(const token of [String.raw`\documentclass[border=6pt]{standalone}`,String.raw`\usepackage{wheelchart}`,String.raw`arc data expand=f`,String.raw`plot={{#1}:{#2+0*(450-#1)}}`,String.raw`wheel data style={align=center,rotate=\WCmidangle+(\WCmidangle<90?0:(\WCmidangle<270?180:0))}`, 'radius={2.5}{4.3}','radius={4.4}{4.8}','radius={4.9}{6.7}','radius={6.8}{7.1}','radius={7.2}{9}','radius={9.1}{9.5}','radius={9.7}{10.1}','radius={10.1}{10.5}','radius={10.6}{11.1}','total count=53','slices arrow={1}{0}','gap polar=-4','gap radius=0.02',String.raw`middle={\fontsize{48}{60}\selectfont2026}`])assert(tex.includes(token),token);
-assert(!/longtable|newpage|resizebox|Unscheduled sentinel/.test(tex));
-assert(tex.includes(String.raw`wheel data{5}={Interne\\Midler\\Second, A/B \& 50\%\_\{x\}}`));
+assert(!/longtable|newpage|Unscheduled sentinel/.test(tex));
+assert(tex.includes(String.raw`Interne\\Midler\\Second, A/\allowbreak{}B \& 50\%\_\{x\}`));
 assert(tex.includes(String.raw`domain/.expanded=\wcdomain{2/53}{5/53}`));
 for(const r of ['radius={4.9}{5.5}','radius={5.5}{6.1}','radius={6.1}{6.7}'])assert(tex.includes(r));
 assert(tex.includes(']{{Grant, A/B}}'));
 assert(tex.includes('29/4,5/11,12/18'));assert(tex.includes('28/3}'));assert(tex.includes('51,52,53}'));
 assert.match(tex,/arc data style\{5\}=\{text color=ywColor\d+\}/);assert.match(tex,/arc data style\{8\}=\{text color=ywColor\d+\}/);
+
+// Exports use the same 12-month palette as the SVG, with readable dark labels.
+for(const [i,name] of ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].entries())assert(tex.includes(`\\definecolor{m${name}}{HTML}{${a.monthColors[i].slice(1)}}`));
+assert(tex.includes('arc data style={text color=labelgray}'));
+assert(tex.includes(String.raw`\ywfitlabel{1.6cm}`));assert(tex.includes('\\ifdim\\ywlabelsize pt>7pt'));
+assert.equal(a.validColor('darkgreen'),'#54b8b4');assert.equal(a.validColor('darkblue'),'#5893c1');
+assert.equal(a.validColor('lightblue'),'#d7e5f0');assert.equal(a.validColor('green'),'#008000');assert.equal(a.validColor('red'),'#ff0000');
+const wrapped=a.prepareCSV('category,date,name,color\nactivity,5,"Interne\\\\Midler",darkgreen\nconference,13,"DKFD\nabstract",darkblue');
+assert.equal(wrapped.events[0].color,'#54b8b4');assert.equal(wrapped.events[1].color,'highlight');assert.equal(wrapped.events[1].subcategory,'blue');
+a.setPlan(base({...wrapped}));assert(a.latex().includes(String.raw`Interne\\Midler`));assert(a.latex().includes(String.raw`DKFD\\abstract`));
+const originalNames=a.getPlan().events.map(e=>e.name);a.latex();assert.deepEqual(a.getPlan().events.map(e=>e.name),originalNames);
+const wrapRoundtrip=a.prepareCSV(a.csv(a.getPlan().events));assert.deepEqual(wrapRoundtrip.events.map(e=>e.name),originalNames);
+a.openEditor(a.getPlan().events[1].id);assert.equal($('event-name').value,'DKFD\nabstract');
+a.setPlan(templatePlan);
+
 // Range-local slice indices must also be used for event and highlight keys.
 const partial=base({...templatePlan,start:5,end:8});a.setPlan(partial);tex=a.latex();
-assert(tex.includes('wheel data{1}='));assert(tex.includes(String.raw`wheel data{4}={{\O}W}`));assert(tex.includes('total count=4'));assert.match(tex,/arc data style\{1\}=\{text color=ywColor\d+\}/);assert.match(tex,/arc data style\{4\}=\{text color=ywColor\d+\}/);assert(!tex.includes('domain/.expanded=\\wcdomain{2/53}'));assert(tex.includes('domain/.expanded=\\wcdomain{0/4}{1/4}'));
+assert(tex.includes('wheel data{1}='));assert(tex.includes(String.raw`{\O}W`));assert(tex.includes('total count=4'));assert.match(tex,/arc data style\{1\}=\{text color=ywColor\d+\}/);assert.match(tex,/arc data style\{4\}=\{text color=ywColor\d+\}/);assert(!tex.includes('domain/.expanded=\\wcdomain{2/53}'));assert(tex.includes('domain/.expanded=\\wcdomain{0/4}{1/4}'));
 // Disabled categories and their events are excluded, including from TeX.
 partial.categories[1].enabled=false;a.setPlan(partial);tex=a.latex();assert(!tex.includes('Grant, A/B'));assert(!tex.includes('radius={2.5}{4.3}'));assert(tex.includes('radius=4.8]'));assert(!tex.includes('arc data={Funding}'));
 const reversed=base({...templatePlan,categories:[...templatePlan.categories].reverse()});a.setPlan(reversed);tex=a.latex();assert(tex.indexOf('arc data={Conferences}')<tex.indexOf('arc data={Activities}'));
 const year52=base({year:2025,center:'2025',end:52});a.setPlan(year52);tex=a.latex();assert(tex.includes('total count=52'));assert(tex.includes('30/5,6/12'));assert(!tex.includes('51,52,53}'));
+
+
+// Conference child palettes share one parent ring and remain editable/portable.
+const subPlan=base({events:[
+ {category:'activity',date:1,name:'Activity'}, {category:'funding',date:2,name:'Funding'},
+ {category:'conference',subcategory:'blue',date:5,name:'Blue normal'},
+ {category:'conference',subcategory:'blue',date:6,name:'Blue highlight',color:'highlight'},
+ {category:'conference',subcategory:'purple',date:7,name:'Purple normal'},
+ {category:'conference',subcategory:'purple',date:8,name:'Purple highlight',color:'highlight'},
+ {category:'conference',subcategory:'purple',date:9,name:'Explicit override',color:'#123456'}
+]});a.setPlan(subPlan);const conference=subPlan.categories.find(c=>c.id==='conference');
+assert.deepEqual(subPlan.events.slice(2).map(e=>a.eventColor(e)),['#98bcd9','#5893c1','#bfa3ec','#9879ce','#123456']);
+assert.equal(a.activeCategories().length,3);assert.equal((a.latex().match(/% CATEGORY /g)||[]).length,3);
+assert($('categories').innerHTML.includes('data-subcategory="purple"'));
+a.openEditor(subPlan.events[4].id);assert.equal($('event-subcategory').value,'purple');assert.equal($('event-subcategory-row').hidden,false);assert($('event-subcategory').innerHTML.includes('Blue'));
+$('event-subcategory').value='blue';$('event-form').onsubmit({preventDefault(){}});assert.equal(a.getPlan().events[4].subcategory,'blue');
+// Edits to a child colour affect inheriting events; custom overrides stay exact.
+$('categories').onchange({target:{dataset:{subcategoryField:'color'},value:'#aa55cc',closest(selector){return selector==='[data-category]'?{dataset:{category:'conference'}}:{dataset:{subcategory:'blue'}}}}});
+assert.equal(a.eventColor(a.getPlan().events[2]),'#aa55cc');assert.equal(a.eventColor(a.getPlan().events[6]),'#123456');
+$('categories').onchange({target:{dataset:{subcategoryField:'name'},value:'Purple meetings',closest(selector){return selector==='[data-category]'?{dataset:{category:'conference'}}:{dataset:{subcategory:'purple'}}}}});
+const subsRoundtrip=a.prepareCSV(a.csv(a.getPlan().events));assert.deepEqual(subsRoundtrip.events.map(e=>[e.subcategory,e.color]),a.getPlan().events.map(e=>[e.subcategory,e.color]));assert.deepEqual(base(JSON.parse(JSON.stringify(a.getPlan()))).categories,a.getPlan().categories);
+const oldColours=a.prepareCSV('category,date,name,color\nconference,1,Blue normal,midblue\nconference,2,Blue strong,darkblue\nconference,3,Purple normal,midpurple\nconference,4,Purple strong,darkpurple');
+assert.deepEqual(oldColours.events.map(e=>[e.subcategory,e.color]),[['blue',''],['blue','highlight'],['purple',''],['purple','highlight']]);
+assert.throws(()=>a.validateEvent({category:'funding',subcategory:'purple',date:1,name:'Wrong ring'},53));
+// Two-ring imports visibly uncheck the unused category; re-enabling is stable.
+a.setPlan(base());const twoImport=a.prepareCSV('category,date,name\nactivity,1,A\nconference,2,C');a.setPlan(base({...twoImport}));assert.equal(a.getPlan().categories.find(c=>c.id==='funding').enabled,false);
+// Force sync through the normal settings path, then restore the third ring.
+$('categories').onchange({target:{dataset:{categoryField:'enabled'},checked:true,closest(){return {dataset:{category:'funding'}}}}});assert.equal(a.activeCategories().length,3);assert.equal(base(JSON.parse(JSON.stringify(a.getPlan()))).categories.filter(c=>c.enabled).length,3);
+$('categories').onchange({target:{dataset:{categoryField:'enabled'},checked:false,closest(){return {dataset:{category:'funding'}}}}});assert($('categories').innerHTML.includes('class="category-settings is-disabled"'));assert($('categories').innerHTML.includes('category-disabled-status">Disabled'));assert.equal(($('categories').innerHTML.match(/disabled title="Keep at least two/g)||[]).length,2);
 
 a.setPlan(base({...custom}));
 (async()=>{let confirmations=0;global.confirm=()=>{confirmations++;return false};$('replace').checked=true;$('file').files=[{name:'test.csv',size:100,text:async()=>'category,date,name,color\nClinical,5,Replacement,red'}];await $('file').onchange();assert.equal(confirmations,1);assert.equal(a.getPlan().events[0].name,'A');global.confirm=()=>true;await $('file').onchange();assert.equal(a.getPlan().events.length,1);assert.equal(a.getPlan().events[0].name,'Replacement');$('replace').checked=false;await $('file').onchange();assert.equal(a.getPlan().events.length,2);
