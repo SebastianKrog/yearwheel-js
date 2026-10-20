@@ -207,10 +207,19 @@ for(const [ring,threshold] of [[2,2],[1,4],[0,6]]){
 }
 assert.equal(a.tangentialEvent({start:1,end:2},2,0,3),true);
 assert.equal(a.tangentialEvent({start:1,end:3},1,0,2),false);
-a.setPlan(base({eventOrientation:'radial',events:[{name:'Forced radial span',category:'conference',start:1,end:6}]}));
-assert.equal(a.tangentialEvent({start:1,end:6},2,2,3),false);assert(a.latex().includes('wheel data{1}={\\ywfitlabel'));
-a.setPlan(base({eventOrientation:'tangential'}));assert.equal(a.tangentialEvent({start:1,end:1},1,0,3),true);
-assert.equal(base(JSON.parse(JSON.stringify(a.getPlan()))).eventOrientation,'tangential');assert.equal(base({eventOrientation:'invalid'}).eventOrientation,'auto');
+const overridden=base({orientationLimits:{outer:5,middle:7,inner:9},events:[{name:'Forced radial span',category:'conference',start:1,end:6,orientation:'radial'},{name:'Forced tangent',category:'activity',start:12,orientation:'tangential'}]});a.setPlan(overridden);
+assert.equal(a.tangentialEvent(overridden.events[0],2,2,3),false);assert(a.latex().includes('wheel data{1}={\\ywfitlabel'));
+assert.equal(a.tangentialEvent(overridden.events[1],1,0,3),true);
+assert.equal(a.tangentialEvent({start:1,end:4,orientation:'auto'},1,2,3),false);assert.equal(a.tangentialEvent({start:1,end:5,orientation:'auto'},1,2,3),true);
+const restoredOrientations=base(JSON.parse(JSON.stringify(overridden)));assert.deepEqual(restoredOrientations.orientationLimits,{outer:5,middle:7,inner:9});assert.deepEqual(restoredOrientations.events.map(e=>e.orientation),['radial','tangential']);
+assert.equal(a.applyInlinePatch(overridden.events[0].id,{name:'Renamed'}).orientation,'radial');assert.equal(a.getPlan().events[0].orientation,'radial');
+a.openEditor(a.getPlan().events[0].id);assert.equal($('event-orientation').value,'radial');$('event-orientation').value='tangential';$('event-form').onsubmit({preventDefault(){}});assert.equal(a.getPlan().events[0].orientation,'tangential');
+assert.equal(a.csv(overridden.events).split('\r\n')[0].replace(/^\ufeff/,''),'name,category,subcategory,start,end,color,notes');assert(a.prepareCSV(a.csv(overridden.events)).events.every(e=>e.orientation==='auto'));
+assert.equal(a.prepareCSV('name,start,orientation\nCSV event,2,radial').events[0].orientation,'auto');
+for(const invalid of [0,54,2.5,'bad'])assert.throws(()=>base({orientationLimits:{inner:invalid}}));
+a.setPlan(base({orientationLimits:{outer:1}}));assert.equal(a.tangentialEvent({start:1,end:1,orientation:'auto'},1,2,3),true);
+assert.deepEqual(base().orientationLimits,{outer:2,middle:4,inner:6});assert.equal(base({events:[{name:'Old event',start:1}]}).events[0].orientation,'auto');
+const migratedOrientation=base({eventOrientation:'radial',events:[{name:'Old global override',start:1}]});assert.equal(migratedOrientation.events[0].orientation,'radial');assert(!('eventOrientation' in migratedOrientation));
 
 // Startup must restore an old saved plan before rendering (including migrations).
 const bootPrelude=fs.readFileSync(__filename,'utf8').split("const a=require")[0];

@@ -92,5 +92,5 @@ main{max-width:none;padding:12px 20px 0}.workspace{grid-template-columns:340px m
 .workspace>aside .subcategory-remove,.workspace>aside [data-remove-group]{font-size:1.5em;width:1.222em;height:1.333em}
 }
 
-.orientation-hint{display:block;font-size:9px;line-height:1.4}#eventOrientation{font-size:12px;padding:6px 7px;margin-top:3px}
-@media screen and (min-width:801px){.workspace>aside #eventOrientation{font-size:1.2em;padding:.5em .583em}.workspace>aside .orientation-hint{font-size:.75em}}
+.orientation-settings{border:0;padding:0;margin:10px 0;min-width:0}.orientation-settings legend{padding:0;font-size:10px;font-weight:550}.orientation-limits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.orientation-limits label{margin:5px 0;font-size:10px}.orientation-limits input{padding:6px 7px!important;margin-top:3px!important;font-size:12px}.orientation-settings small{display:block;font-size:9px;line-height:1.4}
+@media screen and (min-width:801px){.workspace>aside .orientation-settings legend{font-size:.833em}.workspace>aside .orientation-limits label{font-size:.833em}.workspace>aside .orientation-limits input{font-size:1.2em}}
