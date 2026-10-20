@@ -106,6 +106,13 @@ a.setPlan(base());const twoImport=a.prepareCSV('category,date,name\nactivity,1,A
 $('categories').onchange({target:{dataset:{categoryField:'enabled'},checked:true,closest(){return {dataset:{category:'funding'}}}}});assert.equal(a.activeCategories().length,3);assert.equal(base(JSON.parse(JSON.stringify(a.getPlan()))).categories.filter(c=>c.enabled).length,3);
 $('categories').onchange({target:{dataset:{categoryField:'enabled'},checked:false,closest(){return {dataset:{category:'funding'}}}}});assert($('categories').innerHTML.includes('class="category-settings is-disabled"'));assert($('categories').innerHTML.includes('category-disabled-status">Disabled'));assert.equal(($('categories').innerHTML.match(/disabled title="Keep at least two/g)||[]).length,2);
 
+
+// Startup must restore an old saved plan before rendering (including migrations).
+const bootPrelude=fs.readFileSync(__filename,'utf8').split("const a=require")[0];
+const savedOld={year:2026,center:'2026',start:1,end:53,events:[{category:'conference',date:5,name:'Saved sentinel',color:'darkblue'}]};
+const bootCheck=bootPrelude+'\nglobal.localStorage.getItem=()=>'+JSON.stringify(JSON.stringify(savedOld))+';\nconst restoredApp=require('+JSON.stringify(require.resolve('../dist/app.js'))+');assert.equal(restoredApp.getPlan().events[0]?.name,"Saved sentinel");assert.equal(restoredApp.getPlan().categories[2].subcategories.length,2);assert.equal(restoredApp.getPlan().events[0].color,"#5893c1");';
+require('node:child_process').execFileSync(process.execPath,['-e',bootCheck]);
+
 a.setPlan(base({...custom}));
 (async()=>{let confirmations=0;global.confirm=()=>{confirmations++;return false};$('replace').checked=true;$('file').files=[{name:'test.csv',size:100,text:async()=>'category,date,name,color\nClinical,5,Replacement,red'}];await $('file').onchange();assert.equal(confirmations,1);assert.equal(a.getPlan().events[0].name,'A');global.confirm=()=>true;await $('file').onchange();assert.equal(a.getPlan().events.length,1);assert.equal(a.getPlan().events[0].name,'Replacement');$('replace').checked=false;await $('file').onchange();assert.equal(a.getPlan().events.length,2);
 // Produce a representative two-ring export for compilation and visual QA.
