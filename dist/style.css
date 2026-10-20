@@ -61,3 +61,33 @@ main{max-width:none;padding:12px 20px 0}.workspace{grid-template-columns:340px m
 @media screen{.category-settings{grid-template-columns:16px 16px minmax(0,1fr) 52px 34px}.subcategory-row{grid-template-columns:minmax(0,1fr) 34px 22px}.category-settings .category-colour span{font-size:8px}}
 
 .subcategory-row .subcategory-remove,.highlight-group [data-remove-group]{display:grid;place-items:center;align-self:center;justify-self:center;padding:0;line-height:1;text-align:center}
+
+/* A wider settings panel also provides larger, easier-to-read controls. */
+#settings-resizer{display:none}
+@media screen and (min-width:801px){
+.workspace{grid-template-columns:var(--settings-width,340px) 14px minmax(0,1fr);gap:0}
+#settings-resizer{display:block;position:relative;cursor:col-resize;touch-action:none;border-radius:5px;outline-offset:-3px}
+#settings-resizer:after{content:'';position:absolute;top:calc(50% - 24px);height:48px;left:5px;width:4px;border-radius:4px;background:#c3cec5}
+#settings-resizer:hover:after,#settings-resizer:focus-visible:after,.settings-resizing #settings-resizer:after{background:var(--green)}
+.settings-resizing{cursor:col-resize;user-select:none}.settings-resizing *{cursor:col-resize!important}
+.workspace>aside{font-size:calc(12px * var(--settings-scale,1));padding:1.167em 1.333em}
+#wheel-settings{min-width:0}
+#category-order-status{font-size:1em}
+.workspace>aside .panel-title{font-size:1em}
+.workspace>aside label{font-size:.833em}
+.workspace>aside small{font-size:.75em}
+.workspace>aside input:not([type=range]):not([type=checkbox]){font-size:1em;height:2.583em;padding:.5em .583em}
+.workspace>aside .category-name{font-size:.917em!important;height:2.637em!important;padding:.455em!important}
+.workspace>aside .category-colour span{font-size:.667em}
+.workspace>aside .category-settings{grid-template-columns:1.333em 1.333em minmax(0,1fr) 4.333em 2.833em;gap:.417em;margin:.667em 0}
+.workspace>aside .category-enabled{width:1.333em;height:1.333em;font-size:inherit}
+.workspace>aside .category-drag{font-size:1.5em}
+.workspace>aside .category-swatch,.workspace>aside .week-color-trigger{width:2em;height:2em;font-size:inherit}
+.workspace>aside .subcategory-row{grid-template-columns:minmax(0,1fr) 2.833em 1.833em;gap:.417em}
+.workspace>aside .subcategory-settings{padding-left:.667em}
+.workspace>aside .highlight-group{grid-template-columns:minmax(0,1fr) 2.333em 1.833em;gap:.583em}
+.workspace>aside .highlight-group input[data-group-field=weeks]{font-size:.917em;height:2.637em;padding:.455em}
+.workspace>aside .subcategory-add,.workspace>aside #add-highlight-group{font-size:.75em;padding:.222em .556em}
+.workspace>aside .aside-bottom button{font-size:.833em;padding:.5em .7em}
+.workspace>aside .subcategory-remove,.workspace>aside [data-remove-group]{font-size:1.5em;width:1.222em;height:1.333em}
+}

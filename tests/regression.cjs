@@ -2,6 +2,10 @@ const assert=require('node:assert/strict'),fs=require('node:fs');
 global.crypto=require('node:crypto').webcrypto;
 const elements=new Map();global.document={getElementById(id){if(!elements.has(id))elements.set(id,{value:'',checked:false,dataset:{},addEventListener(){},setAttribute(k,v){this[k]=v},focus(){},showModal(){this.open=true},close(){this.open=false}});return elements.get(id)},addEventListener(){}};global.window={addEventListener(){}};global.localStorage={getItem(){return null},setItem(){}};global.setTimeout=()=>0;global.confirm=()=>true;
 const a=require('../dist/app.js'),$=id=>document.getElementById(id);
+assert.deepEqual(a.settingsSizing(100,1200),{width:280,max:640,scale:1});
+assert.deepEqual(a.settingsSizing(580,1200),{width:580,max:640,scale:1.4});
+assert.equal(a.settingsSizing(640,900).width,526);
+assert.equal(a.settingsSizing(NaN,1200).width,340);
 function base(extra={}){return a.validatePlan({year:2026,start:1,end:53,title:'Research & teaching',center:'2026',events:[],...extra})}
 assert.equal(a.weeksIn(2026),53);assert.equal(a.weeksIn(2025),52);assert.equal(a.parseWeek('2026-02-02',2026),6);assert.equal(a.parseWeek('30-04-2026',2026),18);assert.throws(()=>a.parseWeek('31-02-2026',2026));
 assert.equal(a.monthColors[8],'#aa4488');assert.equal(a.monthColors[2],'#00997a');assert.equal(new Set(a.monthColors).size,12);a.setPlan(base());assert.equal(a.validColor('red'),'#ff0000');assert.equal(a.validColor('SteelBlue'),'#4682b4');assert.equal(a.validColor('rebeccapurple'),'#663399');assert.equal(a.validColor('#abc'),'#aabbcc');assert.equal(a.validColor('midpurple'),'#bfa3ec');assert.throws(()=>a.validColor('var(--red)'));

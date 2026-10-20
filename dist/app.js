@@ -455,5 +455,45 @@ $('color-picker-form').onsubmit=e=>{e.preventDefault();if(!readPickerHex()){$('p
 };
 
 $('export').onclick=()=>{$('exports').hidden=!$('exports').hidden};document.addEventListener('click',e=>{if(!e.target.closest('#exports')&&!e.target.closest('#export'))$('exports').hidden=true});$('exports').onclick=e=>{const type=e.target.dataset.export;if(!type)return;$('exports').hidden=true;const name=`yearwheel-${plan.year}`;if(type==='tex')download(latex(),name+'.tex','application/x-tex');if(type==='overleaf')openInOverleaf();if(type==='svg')download(svgString(),name+'.svg','image/svg+xml');if(type==='csv')download(csv(plan.events),name+'.csv','text/csv;charset=utf-8');if(type==='json')download(JSON.stringify(plan,null,2),name+'.json','application/json');if(type==='print')window.print()};$('print').onclick=()=>window.print();sync();
+// Panel width is a device preference, separate from exported calendar settings.
+function settingsSizing(width,available){
+  const max=Math.max(280,Math.min(640,available-374));
+  const value=Math.round(Math.max(280,Math.min(max,Number.isFinite(width)?width:340)));
+  return {width:value,max,scale:1+Math.max(0,value-340)/600};
+}
+function initSettingsResize(){
+  const panel=$('wheel-panel'),handle=$('settings-resizer');
+  if(!panel.style||!panel.getBoundingClientRect)return;
+  let preferred=340,drag=null;
+  try{const saved=localStorage.getItem('yearwheel.settingsWidth');if(saved!==null&&Number.isFinite(Number(saved)))preferred=Number(saved)}catch{}
+  function apply(){
+    const size=settingsSizing(preferred,panel.getBoundingClientRect().width);
+    panel.style.setProperty('--settings-width',size.width+'px');
+    panel.style.setProperty('--settings-scale',size.scale);
+    handle.setAttribute('aria-valuemin',280);handle.setAttribute('aria-valuemax',size.max);
+    handle.setAttribute('aria-valuenow',size.width);handle.setAttribute('aria-valuetext',size.width+' pixels');
+    return size;
+  }
+  function persist(){try{localStorage.setItem('yearwheel.settingsWidth',String(preferred))}catch{}}
+  handle.addEventListener('pointerdown',e=>{
+    if(e.button!==0)return;e.preventDefault();
+    drag={id:e.pointerId,x:e.clientX,width:apply().width};handle.setPointerCapture(e.pointerId);
+    panel.classList.add('settings-resizing');
+  });
+  handle.addEventListener('pointermove',e=>{
+    if(!drag||e.pointerId!==drag.id)return;
+    preferred=settingsSizing(drag.width+e.clientX-drag.x,panel.getBoundingClientRect().width).width;apply();
+  });
+  function finish(e){if(!drag||e.pointerId!==drag.id)return;drag=null;panel.classList.remove('settings-resizing');persist()}
+  handle.addEventListener('pointerup',finish);handle.addEventListener('pointercancel',finish);handle.addEventListener('lostpointercapture',finish);
+  handle.addEventListener('keydown',e=>{
+    const size=apply(),step=e.shiftKey?50:10;
+    const next={ArrowLeft:size.width-step,ArrowRight:size.width+step,Home:280,End:size.max}[e.key];
+    if(next===undefined)return;e.preventDefault();preferred=settingsSizing(next,panel.getBoundingClientRect().width).width;apply();persist();
+  });
+  handle.addEventListener('dblclick',()=>{preferred=340;apply();persist()});
+  window.addEventListener('resize',apply);apply();
+}
+initSettingsResize();
 let printFilters;window.addEventListener('beforeprint',()=>{printFilters=[$('search').value,$('filter').value];$('search').value='';$('filter').value='';renderRows()});window.addEventListener('afterprint',()=>{if(printFilters){[$('search').value,$('filter').value]=printFilters;renderRows()}});
-if(typeof module!=='undefined')module.exports={showUnscheduled,addSubcategory,removeSubcategory,exampleCSV,loadExample,applyInlinePatch,hexToHsv,hsvToHex,resetDefaults,svgEventSegments,tangentRotation,categoryDisplayOrder,reorderCategory,openInOverleaf,monthColors,validColor,eventColor,prepareCSV,highlights,activeCategories,defaultCategories,openEditor,selectTab,parseWeek,monday,weeksIn,validateEvent,validatePlan,parseCSV,csv,texEscape,latex,makeScene,setPlan:p=>{plan=p;scene=makeScene()},getPlan:()=>plan};
+if(typeof module!=='undefined')module.exports={settingsSizing,showUnscheduled,addSubcategory,removeSubcategory,exampleCSV,loadExample,applyInlinePatch,hexToHsv,hsvToHex,resetDefaults,svgEventSegments,tangentRotation,categoryDisplayOrder,reorderCategory,openInOverleaf,monthColors,validColor,eventColor,prepareCSV,highlights,activeCategories,defaultCategories,openEditor,selectTab,parseWeek,monday,weeksIn,validateEvent,validatePlan,parseCSV,csv,texEscape,latex,makeScene,setPlan:p=>{plan=p;scene=makeScene()},getPlan:()=>plan};
