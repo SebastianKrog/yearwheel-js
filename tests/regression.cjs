@@ -4,7 +4,7 @@ const elements=new Map();global.document={getElementById(id){if(!elements.has(id
 const a=require('../dist/app.js'),$=id=>document.getElementById(id);
 function base(extra={}){return a.validatePlan({year:2026,start:1,end:53,title:'Research & teaching',center:'2026',events:[],...extra})}
 assert.equal(a.weeksIn(2026),53);assert.equal(a.weeksIn(2025),52);assert.equal(a.parseWeek('2026-02-02',2026),6);assert.equal(a.parseWeek('30-04-2026',2026),18);assert.throws(()=>a.parseWeek('31-02-2026',2026));
-assert.equal(a.monthColors[8],'#f0dfe9');assert.equal(a.monthColors[2],'#dff0e8');assert.equal(new Set(a.monthColors).size,12);a.setPlan(base());assert.equal(a.validColor('red'),'#ff0000');assert.equal(a.validColor('SteelBlue'),'#4682b4');assert.equal(a.validColor('rebeccapurple'),'#663399');assert.equal(a.validColor('#abc'),'#aabbcc');assert.equal(a.validColor('midpurple'),'#bfa3ec');assert.throws(()=>a.validColor('var(--red)'));
+assert.equal(a.monthColors[8],'#aa4488');assert.equal(a.monthColors[2],'#00997a');assert.equal(new Set(a.monthColors).size,12);a.setPlan(base());assert.equal(a.validColor('red'),'#ff0000');assert.equal(a.validColor('SteelBlue'),'#4682b4');assert.equal(a.validColor('rebeccapurple'),'#663399');assert.equal(a.validColor('#abc'),'#aabbcc');assert.equal(a.validColor('midpurple'),'#bfa3ec');assert.throws(()=>a.validColor('var(--red)'));
 let p=base({highlights:'12, 24–26'});assert.equal(p.highlightGroups[0].color,'#ff0000');a.setPlan(p);assert(a.highlights().has(26));
 let imported=a.prepareCSV('category;date;end_date;name;color\nactivity;2;5;First;highlight\nconference;8;;Second;\n;;;;\nconference;;;Undated;steelblue');assert.equal(imported.events.length,3);assert.equal(imported.events[2].start,null);assert.equal(imported.events[0].color,'highlight');assert.equal(imported.events[1].color,'');p={...p,...imported};a.setPlan(p);assert.equal(a.activeCategories().length,2);assert.equal(a.eventColor(p.events[0]),p.categories[0].highlight);assert.equal(a.eventColor(p.events[1]),p.categories[2].color);
 let scene=a.makeScene();assert(!scene.filter(o=>o.type==='poly').some(o=>o.pts.some(([x,y])=>Math.hypot(x-500,y-500)<215.9)),'Inner ring must be absent');
@@ -57,7 +57,7 @@ assert.match(tex,/arc data style\{5\}=\{text color=ywColor\d+\}/);assert.match(t
 
 // Exports use the same 12-month palette as the SVG, with readable dark labels.
 for(const [i,name] of ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].entries())assert(tex.includes(`\\definecolor{m${name}}{HTML}{${a.monthColors[i].slice(1)}}`));
-assert(tex.includes('arc data style={text color=labelgray}'));
+assert(tex.includes('arc data style={text color=white}'));
 assert(tex.includes(String.raw`\ywfitlabel{1.6cm}`));assert(tex.includes('\\ifdim\\ywlabelsize pt>7pt'));
 assert.equal(a.validColor('darkgreen'),'#54b8b4');assert.equal(a.validColor('darkblue'),'#5893c1');
 assert.equal(a.validColor('lightblue'),'#d7e5f0');assert.equal(a.validColor('green'),'#008000');assert.equal(a.validColor('red'),'#ff0000');
@@ -129,6 +129,9 @@ svgPlan.categories.reverse();svgPlan.categories[0].name='Custom name';svgPlan.ca
 const retainedEvents=JSON.stringify(a.getPlan().events);$('reset-defaults').onclick();
 assert.deepEqual(a.getPlan().categories,a.defaultCategories());assert.equal(a.getPlan().labelSize,11);assert.equal(JSON.stringify(a.getPlan().events),retainedEvents);assert.equal(a.getPlan().end,20);assert.equal(a.getPlan().center,'Custom centre');assert.equal(a.getPlan().highlightGroups[0].weeks,'12');
 
+// Picker colour conversions retain original hex values, including neutral colours.
+for(const hex of [...a.monthColors,'#54b8b4','#9879ce','#ffffff','#000000','#808080'])assert.equal(a.hsvToHex(a.hexToHsv(hex)),hex);
+for(const hex of a.monthColors)assert(a.hexToHsv(hex).s>.5,'Month fills retain strong saturation.');
 // Startup must restore an old saved plan before rendering (including migrations).
 const bootPrelude=fs.readFileSync(__filename,'utf8').split("const a=require")[0];
 const savedOld={year:2026,center:'2026',start:1,end:53,events:[{category:'conference',date:5,name:'Saved sentinel',color:'darkblue'}]};
