@@ -31,7 +31,7 @@ const touchHandle=handleFor('funding');$('categories').onpointerdown({target:{cl
 const previous=a.categoryDisplayOrder().map(c=>c.id);$('categories').onpointerdown({target:{closest(){return handleFor('funding')}},pointerType:'touch',pointerId:2,clientY:130,preventDefault(){}});$('categories').onpointermove({pointerId:2,clientX:10,clientY:10,preventDefault(){}});$('categories').onpointercancel({pointerId:2,clientY:10});assert.deepEqual(a.categoryDisplayOrder().map(c=>c.id),previous);
 // Categories with events may be disabled, restored and round-tripped without deletion.
 const three=base({events:[{category:'activity',date:5,name:'Keep research'},{category:'funding',date:6,name:'Keep funding'},{category:'conference',date:7,name:'Keep meeting'}]});a.setPlan(three);const fundingId=three.events[1].id;
-$('categories').onchange({target:{dataset:{categoryField:'enabled'},checked:false,closest(){return {dataset:{category:'funding'}}}}});assert.equal(a.getPlan().events.length,3);assert.equal(a.getPlan().categories[1].enabled,false);assert.equal(a.activeCategories().length,2);assert(!a.makeScene().some(o=>o.id===fundingId));assert($('rows').innerHTML.includes('Disabled'));assert($('count').textContent.includes('2 of 3 events'));assert($('event-category').innerHTML.includes('Funding (disabled)'));assert.equal(base(JSON.parse(JSON.stringify(a.getPlan()))).events.length,3);
+$('categories').onchange({target:{dataset:{categoryField:'enabled'},checked:false,closest(){return {dataset:{category:'funding'}}}}});assert.equal(a.getPlan().events.length,3);assert.equal(a.getPlan().categories[1].enabled,false);assert.equal(a.activeCategories().length,2);assert(!a.makeScene().some(o=>o.id===fundingId));assert($('rows').innerHTML.includes('Disabled'));assert($('count').innerHTML.includes('2 of 3 events'));assert($('event-category').innerHTML.includes('Funding (disabled)'));assert.equal(base(JSON.parse(JSON.stringify(a.getPlan()))).events.length,3);
 $('categories').onchange({target:{dataset:{categoryField:'enabled'},checked:true,closest(){return {dataset:{category:'funding'}}}}});assert(a.makeScene().some(o=>o.id===fundingId));assert.equal(a.getPlan().events.length,3);
 let submitted=0;$('overleaf-form').submit=()=>submitted++;a.openInOverleaf();assert.equal(submitted,1);assert.equal(decodeURIComponent($('overleaf-source').value),a.latex());assert(decodeURIComponent($('overleaf-source').value).includes('Research & teaching')===false);assert(decodeURIComponent($('overleaf-source').value).includes('\\usepackage{wheelchart}'));
 
@@ -160,6 +160,13 @@ a.openEditor(); // existing edit flow still works with unnumbered names
 const unnumberedScene=a.makeScene().filter(o=>o.type==='text'&&o.id);
 assert(unnumberedScene.length>0);assert(unnumberedScene.every(o=>!/^\d+\.?$|^\d+\. /.test(o.value)));
 $('search').value='';$('filter').value='';$('search').oninput();assert($('rows').innerHTML.includes('>Plain label</button>'));assert(!$('rows').innerHTML.includes('>1. Plain label'));
+
+// The wheel unscheduled link clears unrelated filters and opens the filtered Events tab.
+a.setPlan(base({events:[{name:'Scheduled example',category:'activity',start:5},{name:'Undated example',category:'funding'}]}));
+$('search').value='unrelated';$('filter').value='activity';a.showUnscheduled();
+assert.equal($('schedule-filter').value,'unscheduled');assert.equal($('search').value,'');assert.equal($('filter').value,'');assert.equal($('events-panel').hidden,false);assert($('rows').innerHTML.includes('Undated example'));assert(!$('rows').innerHTML.includes('Scheduled example'));
+$('schedule-filter').value='scheduled';$('schedule-filter').onchange();assert($('rows').innerHTML.includes('Scheduled example'));assert(!$('rows').innerHTML.includes('Undated example'));
+$('schedule-filter').value='';$('schedule-filter').onchange();assert($('rows').innerHTML.includes('Undated example'));assert($('rows').innerHTML.includes('Scheduled example'));
 
 // Startup must restore an old saved plan before rendering (including migrations).
 const bootPrelude=fs.readFileSync(__filename,'utf8').split("const a=require")[0];
