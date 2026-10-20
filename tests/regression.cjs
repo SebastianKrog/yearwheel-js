@@ -62,7 +62,7 @@ assert.match(tex,/arc data style\{5\}=\{text color=ywColor\d+\}/);assert.match(t
 // Exports use the same 12-month palette as the SVG, with readable dark labels.
 for(const [i,name] of ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].entries())assert(tex.includes(`\\definecolor{m${name}}{HTML}{${a.monthColors[i].slice(1)}}`));
 assert(tex.includes('arc data style={text color=white}'));
-assert(tex.includes(String.raw`\ywfitlabel{1.6cm}`));assert(tex.includes('\\ifdim\\ywlabelsize pt>7pt'));
+assert(tex.includes(String.raw`\ywfitlabel{1.6cm}`));assert(tex.includes('\\ifdim\\ywlabelsize pt>\\ywminfontsize pt'));
 assert.equal(a.validColor('darkgreen'),'#54b8b4');assert.equal(a.validColor('darkblue'),'#5893c1');
 assert.equal(a.validColor('lightblue'),'#d7e5f0');assert.equal(a.validColor('green'),'#008000');assert.equal(a.validColor('red'),'#ff0000');
 const wrapped=a.prepareCSV('category,date,name,color\nactivity,5,"Interne\\\\Midler",darkgreen\nconference,13,"DKFD\nabstract",darkblue');
@@ -131,7 +131,7 @@ assert.equal(a.latex(),exportBeforeScene);assert.equal(JSON.stringify(a.getPlan(
 // Reset appearance defaults without clearing or rescheduling any events.
 svgPlan.categories.reverse();svgPlan.categories[0].name='Custom name';svgPlan.categories[0].color='#123456';svgPlan.labelSize=16;svgPlan.start=1;svgPlan.end=20;svgPlan.center='Custom centre';svgPlan.highlightGroups=[{weeks:'12',color:'#ff0000'}];a.setPlan(svgPlan);
 const retainedEvents=JSON.stringify(a.getPlan().events);$('reset-defaults').onclick();
-assert.deepEqual(a.getPlan().categories,a.defaultCategories());assert.equal(a.getPlan().labelSize,11);assert.equal(JSON.stringify(a.getPlan().events),retainedEvents);assert.equal(a.getPlan().end,20);assert.equal(a.getPlan().center,'Custom centre');assert.equal(a.getPlan().highlightGroups[0].weeks,'12');
+assert.deepEqual(a.getPlan().categories,a.defaultCategories());assert.equal(a.getPlan().labelSize,14);assert.equal(JSON.stringify(a.getPlan().events),retainedEvents);assert.equal(a.getPlan().end,20);assert.equal(a.getPlan().center,'Custom centre');assert.equal(a.getPlan().highlightGroups[0].weeks,'12');
 
 // Picker colour conversions retain original hex values, including neutral colours.
 for(const hex of [...a.monthColors,'#54b8b4','#9879ce','#ffffff','#000000','#808080'])assert.equal(a.hsvToHex(a.hexToHsv(hex)),hex);
@@ -249,6 +249,12 @@ for(const [ring,c] of a.activeCategories().entries()){
 }
 assert.equal(JSON.stringify(a.getPlan()),originalDisplayPlan);assert.equal(a.csv(a.getPlan().events),displayCsv);assert(!displayCsv.includes('Summer\nconference'));
 assert(sharedTex.includes('\\shortstack[c]{#3}'));assert(sharedTex.includes('\\ifdim\\wd\\ywlabelbox>#1'));
+
+// The larger default sits at the midpoint of 8–20; migrate only the old default.
+assert.equal(base().labelSize,14);assert.equal(base({labelSize:11}).labelSize,14);
+assert.equal(base({labelSize:11,labelSizeVersion:2}).labelSize,11);assert.equal(base({labelSize:14}).labelSize,14);assert.equal(base({labelSize:100}).labelSize,20);
+a.setPlan(base({labelSize:14}));assert(a.latex().includes('\\renewcommand{\\ywbasefontsize}{10}'));
+a.setPlan(base({labelSize:20,labelSizeVersion:2,events:[{name:'Scale test',category:'conference',start:10,end:12}]}));assert(a.latex().includes('\\renewcommand{\\ywbasefontsize}{14.286}'));assert(a.latex().includes('\\fontsize{14.286}'));
 
 // Startup must restore an old saved plan before rendering (including migrations).
 const bootPrelude=fs.readFileSync(__filename,'utf8').split("const a=require")[0];

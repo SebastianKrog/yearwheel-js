@@ -17,7 +17,7 @@ function monday(y,w){const d=new Date(Date.UTC(y,0,4));d.setUTCDate(d.getUTCDate
 function weeksIn(y){return Math.round((monday(y+1,1)-monday(y,1))/604800000)}
 const fmt=d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'});
 function dateRange(a,b,y=plan.year){const d=monday(y,b);d.setUTCDate(d.getUTCDate()+6);return `${fmt(monday(y,a))} – ${fmt(d)}`}
-function defaultPlan(){const y=new Date().getFullYear();return {version:3,ringSelectionExplicit:true,title:'Annual plan',year:y,center:String(y),start:1,end:weeksIn(y),categories:defaultCategories(),highlightGroups:[],labelSize:11,orientationLimits:{outer:2,middle:4,inner:6},events:[]}}
+function defaultPlan(){const y=new Date().getFullYear();return {version:3,ringSelectionExplicit:true,title:'Annual plan',year:y,center:String(y),start:1,end:weeksIn(y),categories:defaultCategories(),highlightGroups:[],labelSize:14,labelSizeVersion:2,orientationLimits:{outer:2,middle:4,inner:6},events:[]}}
 let plan=defaultPlan(),editId=null,scene=[];
 try{const p=JSON.parse(localStorage.getItem(KEY));if(p)plan=validatePlan(p)}catch{}
 function validColor(value){const c=String(value||'').trim().toLowerCase();if(wheelPaletteNames.has(c))return legacy[c];if(/^#[0-9a-f]{6}$/.test(c))return c;if(/^#[0-9a-f]{3}$/.test(c))return '#'+c.slice(1).split('').map(x=>x+x).join('');if(cssColors[c])return cssColors[c];if(legacy[c])return legacy[c];throw Error(`Unsupported colour “${value}”. Use a standard colour name or hex colour.`)}
@@ -41,7 +41,7 @@ function validateOrientationLimits(input){
   for(const ring of ['outer','middle','inner']){limits[ring]=Number(limits[ring]);if(!Number.isInteger(limits[ring])||limits[ring]<1||limits[ring]>53)throw Error('Orientation limits must be whole weeks from 1 to 53.')}
   return {outer:limits.outer,middle:limits.middle,inner:limits.inner};
 }
-function validatePlan(p){const year=Number(p.year),max=weeksIn(year);if(!Number.isInteger(year)||year<1900||year>2100)throw Error('Year must be 1900–2100.');const start=Number(p.start),end=Number(p.end);if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end>max)throw Error('Invalid displayed week range.');if(!Array.isArray(p.events)||p.events.length>2000)throw Error('Invalid event list (maximum 2,000).');const categories=validateCategories(p.categories),highlightGroups=validateGroups(p.highlightGroups??(p.highlights?[{weeks:p.highlights,color:'red'}]:[]));const events=p.events.map(e=>{let value=e;if((p.version??2)<3&&e.subcategory&&e.color==='highlight'){const old=p.categories?.find(c=>c.id===e.category)?.subcategories?.find(sub=>sub.id===e.subcategory);if(old?.highlight&&validColor(old.highlight)!==categories.find(c=>c.id===e.category)?.subcategories.find(sub=>sub.id===e.subcategory)?.color)value={...e,color:old.highlight}}if(value.orientation===undefined&&['radial','tangential'].includes(p.eventOrientation))value={...value,orientation:p.eventOrientation};return validateEvent(value,max,year,categories)});if(!p.ringSelectionExplicit){const used=new Set(events.filter(e=>categories.find(c=>c.id===e.category)?.enabled).map(e=>e.category));if(used.size===2)for(const c of categories)c.enabled=used.has(c.id)}return {version:3,ringSelectionExplicit:true,title:String(p.title||'Annual plan').slice(0,80),year,center:String(p.center??year).slice(0,30),start,end,categories,highlightGroups,labelSize:Math.max(7,Math.min(16,Number(p.labelSize)||11)),orientationLimits:validateOrientationLimits(p.orientationLimits),events}}
+function validatePlan(p){const year=Number(p.year),max=weeksIn(year);if(!Number.isInteger(year)||year<1900||year>2100)throw Error('Year must be 1900–2100.');const start=Number(p.start),end=Number(p.end);if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end>max)throw Error('Invalid displayed week range.');if(!Array.isArray(p.events)||p.events.length>2000)throw Error('Invalid event list (maximum 2,000).');const categories=validateCategories(p.categories),highlightGroups=validateGroups(p.highlightGroups??(p.highlights?[{weeks:p.highlights,color:'red'}]:[]));const events=p.events.map(e=>{let value=e;if((p.version??2)<3&&e.subcategory&&e.color==='highlight'){const old=p.categories?.find(c=>c.id===e.category)?.subcategories?.find(sub=>sub.id===e.subcategory);if(old?.highlight&&validColor(old.highlight)!==categories.find(c=>c.id===e.category)?.subcategories.find(sub=>sub.id===e.subcategory)?.color)value={...e,color:old.highlight}}if(value.orientation===undefined&&['radial','tangential'].includes(p.eventOrientation))value={...value,orientation:p.eventOrientation};return validateEvent(value,max,year,categories)});if(!p.ringSelectionExplicit){const used=new Set(events.filter(e=>categories.find(c=>c.id===e.category)?.enabled).map(e=>e.category));if(used.size===2)for(const c of categories)c.enabled=used.has(c.id)}return {version:3,ringSelectionExplicit:true,title:String(p.title||'Annual plan').slice(0,80),year,center:String(p.center??year).slice(0,30),start,end,categories,highlightGroups,labelSize:Math.max(8,Math.min(20,p.labelSizeVersion!==2&&Number(p.labelSize)===11?14:Number(p.labelSize)||14)),labelSizeVersion:2,orientationLimits:validateOrientationLimits(p.orientationLimits),events}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(plan));$('saved').textContent='Saved on this device'}catch{$('saved').textContent='Storage unavailable · export a backup'}}
 function toast(msg){$('toast').textContent=msg;$('toast').hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').hidden=true,4500)}
 function sync(){for(const k of ['title','year','center','start','end','labelSize'])$(k).value=plan[k];$('end').max=$('start').max=weeksIn(plan.year);for(const ring of ['outer','middle','inner'])$('orientation-'+ring).value=plan.orientationLimits[ring];renderSettings();render()}
@@ -292,7 +292,7 @@ function resetDefaults(){
     const extra=(old?.subcategories||[]).filter(sub=>!d.subcategories.some(x=>x.id===sub.id));
     return {...d,id:old?.id||d.id,subcategories:[...d.subcategories,...extra]};
   });
-  plan.labelSize=11;plan.orientationLimits={outer:2,middle:4,inner:6};plan.ringSelectionExplicit=true;save();sync();toast('Default category names, order, colours, label size and automatic orientation limits restored.');
+  plan.labelSize=14;plan.labelSizeVersion=2;plan.orientationLimits={outer:2,middle:4,inner:6};plan.ringSelectionExplicit=true;save();sync();toast('Default category names, order, colours, label size and automatic orientation limits restored.');
 }
 $('reset-defaults').onclick=resetDefaults;
 
@@ -319,7 +319,7 @@ function exampleCSV(){
 function loadExample(){
   if(plan.events.length&&!confirm('Replace your events and settings with the example plan?'))return;
   const categories=defaultCategories(),events=parseCSV(exampleCSV()).map(e=>validateEvent(e,weeksIn(plan.year),plan.year,categories));
-  plan=validatePlan({...plan,title:'Example annual plan',center:String(plan.year),start:1,end:weeksIn(plan.year),labelSize:11,orientationLimits:{outer:2,middle:4,inner:6},ringSelectionExplicit:true,categories,highlightGroups:[{weeks:'12,24–26',color:'#ff0000'},{weeks:'40–41',color:'#5893c1'}],events});save();sync();
+  plan=validatePlan({...plan,title:'Example annual plan',center:String(plan.year),start:1,end:weeksIn(plan.year),labelSize:14,labelSizeVersion:2,orientationLimits:{outer:2,middle:4,inner:6},ringSelectionExplicit:true,categories,highlightGroups:[{weeks:'12,24–26',color:'#ff0000'},{weeks:'40–41',color:'#5893c1'}],events});save();sync();
 }
 $('demo').onclick=loadExample;
 function download(content,name,type){const url=URL.createObjectURL(new Blob([content],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
@@ -340,10 +340,12 @@ const wheelchartHeader=String.raw`\documentclass[border=6pt]{standalone}
 \usetikzlibrary{decorations.text}
 
 % Use the shared display label's explicit lines; fit with TeX font metrics.
+\newcommand{\ywbasefontsize}{10}
+\newcommand{\ywminfontsize}{7}
 \newsavebox{\ywlabelbox}
 \newcommand{\ywfitlabel}[3]{%
   \begingroup
-  \def\ywlabelsize{10}%
+  \def\ywlabelsize{\ywbasefontsize}%
   \def\ywlabeltry{%
     \sbox{\ywlabelbox}{{\fontsize{\ywlabelsize}{\fpeval{1.2*\ywlabelsize}}\selectfont
       \shortstack[c]{#3}}}%
@@ -351,8 +353,8 @@ const wheelchartHeader=String.raw`\documentclass[border=6pt]{standalone}
     \ifdim\wd\ywlabelbox>#1\relax\def\ywlabelcrowded{1}\fi
     \ifdim\dimexpr\ht\ywlabelbox+\dp\ywlabelbox\relax>#2\relax\def\ywlabelcrowded{1}\fi
     \ifnum\ywlabelcrowded=1
-      \ifdim\ywlabelsize pt>7pt
-        \edef\ywlabelsize{\fpeval{\ywlabelsize-0.5}}%
+      \ifdim\ywlabelsize pt>\ywminfontsize pt
+        \edef\ywlabelsize{\fpeval{max(\ywminfontsize,\ywlabelsize-0.5)}}%
         \ywlabeltry
       \else
         \ifdim\wd\ywlabelbox>#1\relax
@@ -429,7 +431,8 @@ function arcText(value){return wheelText(value).replace(/\\(?:textbackslash|text
 function latex(){
   const cats=activeCategories(),count=plan.end-plan.start+1;
   const slots=[{rin:2.5,rout:4.3,tin:4.4,tout:4.8},{rin:4.9,rout:6.7,tin:6.8,tout:7.1},{rin:7.2,rout:9,tin:9.1,tout:9.5}].slice(3-cats.length);
-  const out=[wheelchartHeader],colors=new Map();
+  const fontSize=Number((plan.labelSize*10/14).toFixed(3));
+  const out=[wheelchartHeader,String.raw`\renewcommand{\ywbasefontsize}{`+fontSize+'}',String.raw`\renewcommand{\ywminfontsize}{`+Number((fontSize*.7).toFixed(3))+'}'],colors=new Map();
   const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const colorName=value=>{const hex=validColor(value);if(!colors.has(hex))colors.set(hex,'ywColor'+colors.size);return colors.get(hex)};
   const chart=(options,data=' ')=>String.raw`\wheelchart[`+'\n  '+options.join(',\n  ')+'\n]{'+data+'}\n';
@@ -471,7 +474,8 @@ function latex(){
       }
       if(tangentialEvent(e,labelPart.count,c,cats.length)){
         const thickness=(s.rout-s.rin)/labelPart.count,rin=s.rin+labelPart.lane*thickness;
-        spanLabels.push(chart([String.raw`arc data=\WCvarA`,String.raw`domain/.expanded=\wcdomain{`+(Math.max(plan.start,e.start)-plan.start)+'/'+count+'}{'+(Math.min(plan.end,e.end)+1-plan.start)+'/'+count+'}',`radius={${fmt(rin)}}{${fmt(rin+thickness)}}`,'slices style={fill=none,draw=none}'],'{'+arcText(displayLabels.get(e.id))+'}'));
+        const lines=displayLabels.get(e.id).split('\n'),arcFont=fmt(Math.min(fontSize,(thickness*28.45274-3)/(lines.length*1.2)));
+        spanLabels.push('{\\fontsize{'+arcFont+'}{'+fmt(arcFont*1.2)+'}\\selectfont\n'+chart([String.raw`arc data=\WCvarA`,String.raw`domain/.expanded=\wcdomain{`+(Math.max(plan.start,e.start)-plan.start)+'/'+count+'}{'+(Math.min(plan.end,e.end)+1-plan.start)+'/'+count+'}',`radius={${fmt(rin)}}{${fmt(rin+thickness)}}`,'slices style={fill=none,draw=none}'],'{'+arcText(displayLabels.get(e.id))+'}')+'}\n');
       }
     }
     out.push(...spanLabels);
