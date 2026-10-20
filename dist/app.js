@@ -123,7 +123,7 @@ function tangentialEvent(e,laneCount,ringIndex,ringCount){
 let labelMeasureContext;
 function labelTextWidth(text,size){
   if(labelMeasureContext===undefined){try{labelMeasureContext=document.createElement?.('canvas').getContext('2d')||null}catch{labelMeasureContext=null}}
-  if(labelMeasureContext){labelMeasureContext.font=size+'px Arial';return labelMeasureContext.measureText(text).width}
+  if(labelMeasureContext){labelMeasureContext.font='100px Arial';return labelMeasureContext.measureText(text).width*size/100}
   return Array.from(text).reduce((sum,c)=>sum+(/[ilI.,'!|]/.test(c)?.28:/[MW@]/.test(c)?.9:.6),0)*size;
 }
 // Keep every word and explicit newline. Fit by reducing the font uniformly;
