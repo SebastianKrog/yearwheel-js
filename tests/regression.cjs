@@ -142,6 +142,18 @@ a.applyInlinePatch(inlineId,{category:'funding'});assert.equal(a.getPlan().event
 a.applyInlinePatch(inlineId,{start:null,end:null});assert.equal(a.getPlan().events[0].start,null);assert.equal(a.getPlan().events[0].end,null);
 assert.throws(()=>a.applyInlinePatch(inlineId,{name:' '}));assert.throws(()=>a.applyInlinePatch('missing',{name:'No event'}));
 
+// Subcategory creation/removal preserves events and inheritance; empty lists survive restore.
+a.setPlan(base());const createdSub=a.addSubcategory('activity');const newSub=a.getPlan().categories[0].subcategories[0];
+assert.equal(newSub.id,createdSub);assert.equal(newSub.color,a.getPlan().categories[0].color);assert.equal(newSub.highlight,a.getPlan().categories[0].highlight);
+const nextSub=a.addSubcategory('activity');assert.notEqual(nextSub,createdSub);assert.equal(a.getPlan().categories[0].subcategories[1].name,'Subcategory 2');
+a.setPlan(base({categories:a.getPlan().categories,events:[{name:'Keep highlight',category:'activity',subcategory:createdSub,start:2,color:'highlight'},{name:'Keep custom',category:'activity',subcategory:createdSub,start:3,color:'#abc'},{name:'Keep blue',category:'conference',subcategory:'blue',start:4}]}));
+const oldSubEvents=a.getPlan().events.map(e=>({...e}));assert(a.removeSubcategory('activity',createdSub));assert.equal(a.getPlan().events.length,3);
+assert.equal(a.getPlan().events[0].id,oldSubEvents[0].id);assert.equal(a.getPlan().events[0].subcategory,undefined);assert.equal(a.getPlan().events[0].color,'highlight');assert.equal(a.getPlan().events[1].color,'#aabbcc');assert.equal(a.getPlan().events[2].subcategory,'blue');
+a.removeSubcategory('conference','blue');a.removeSubcategory('conference','purple');assert.equal(base(JSON.parse(JSON.stringify(a.getPlan()))).categories[2].subcategories.length,0);
+assert.equal(a.removeSubcategory('conference','missing'),false);
+for(let i=0;i<8;i++)a.addSubcategory('funding');assert.throws(()=>a.addSubcategory('funding'),/eight/);
+assert.deepEqual(a.prepareCSV(a.csv(a.getPlan().events)).events.map(e=>[e.name,e.subcategory,e.color]),a.getPlan().events.map(e=>[e.name,e.subcategory,e.color]));
+
 // Startup must restore an old saved plan before rendering (including migrations).
 const bootPrelude=fs.readFileSync(__filename,'utf8').split("const a=require")[0];
 const savedOld={year:2026,center:'2026',start:1,end:53,events:[{category:'conference',date:5,name:'Saved sentinel',color:'darkblue'}]};
