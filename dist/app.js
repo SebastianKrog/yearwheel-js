@@ -144,6 +144,43 @@ function fitEventLabel(value,width,height,preferred,measure=labelTextWidth,wrapW
   return {lines,size:.5*Math.min(1,width/widest,height/(lines.length*.5*1.15))};
 }
 
+// Derived display text is never written back to the event name or CSV/JSON.
+// Balance line widths and avoid stranding short linking words at line ends.
+function displayLabel(name,width,height,preferred=plan.labelSize){
+  const paragraphs=String(name).split(/\\\\|\r?\n/),words=[],paragraphOf=[];
+  paragraphs.forEach((p,index)=>{for(const word of p.trim().split(/\s+/)){words.push(word);paragraphOf.push(index)}});
+  const count=words.length,unit=words.map(w=>labelTextWidth(w,1)),space=labelTextWidth(' ',1),prefix=[0];
+  for(const size of unit)prefix.push(prefix.at(-1)+size);
+  const lineWidth=(a,b)=>prefix[b]-prefix[a]+space*(b-a-1);
+  const link=/^(?:a|an|the|and|or|of|for|to|in|on|at|by|with|from|&|af|og|til|på|i|en|et|den|det)$/i;
+  const range=Math.max(1,labelTextWidth(words.join(' '),1)),maxLines=Math.min(count,Math.max(8,paragraphs.length));
+  const dp=Array.from({length:maxLines+1},()=>Array(count+1).fill(null));dp[0][0]={cost:0,lines:[],widths:[],penalty:0};
+  let best=null;
+  for(let n=1;n<=maxLines;n++){
+    for(let end=n;end<=count;end++)for(let begin=end-1;begin>=n-1&&paragraphOf[begin]===paragraphOf[end-1];begin--){
+      const prev=dp[n-1][begin];if(!prev)continue;
+      const w=lineWidth(begin,end),penalty=(end<count&&paragraphOf[end]===paragraphOf[end-1]&&link.test(words[end-1])?1:0)+(end-begin===1&&link.test(words[begin])?4:0);
+      const cost=prev.cost+w*w+penalty*range*range*.25;
+      if(!dp[n][end]||cost<dp[n][end].cost)dp[n][end]={cost,lines:[...prev.lines,words.slice(begin,end).join(' ')],widths:[...prev.widths,w],penalty:prev.penalty+penalty};
+    }
+    const candidate=dp[n][count];if(!candidate)continue;
+    const maxWidth=Math.max(.001,...candidate.widths),size=Math.min(preferred,Math.max(1,width)/maxWidth,Math.max(1,height)/(n*1.15));
+    const mean=candidate.widths.reduce((a,b)=>a+b,0)/n;
+    const imbalance=candidate.widths.reduce((sum,w)=>sum+(w-mean)**2,0)/(n*Math.max(.001,mean*mean));
+    const score=10*Math.log(preferred/size)+Math.max(0,n-paragraphs.length)*.55+imbalance*.3+candidate.penalty;
+    if(!best||score<best.score)best={score,label:candidate.lines.join('\n')};
+  }
+  return best?.label??String(name);
+}
+function eventLabelLayout(e,part,ringIndex,ringCount){
+  const angle=w=>1+358*(w-plan.start)/(plan.end-plan.start+1),thick=98/part.count;
+  const ri=(3-ringCount+ringIndex)*108+108+part.lane*thick+1,ro=ri+thick-2;
+  const a=angle(part.start)+.22,b=angle(part.end)-.22,mid=(a+b)/2,tangential=tangentialEvent(e,part.count,ringIndex,ringCount);
+  const arcRoom=((ri+ro)/2)*(b-a)*Math.PI/180-6,width=tangential?arcRoom:thick-9,height=tangential?thick-8:arcRoom;
+  const label=displayLabel(e.name,width,height,plan.labelSize),fit=fitEventLabel(label,width,height,plan.labelSize,undefined,false);
+  return {...fit,label,ri,ro,mid,rotation:tangential?tangentRotation(mid):(mid>180?mid-270:mid-90)};
+}
+
 function makeScene(){const s=[],n=plan.end-plan.start+1,angle=x=>1+358*(x-plan.start)/n;
 const poly=(pts,fill,stroke='#ffffff',width=.7,id=null)=>s.push({type:'poly',pts,fill,stroke,width,id});
 const text=(x,y,value,size=10,fill='#52675c',rotate=0,weight=false,id=null)=>s.push({type:'text',x,y,value,size,fill,rotate,weight,id});
@@ -158,14 +195,10 @@ for(const e of events){
   for(const segment of segments.get(e.id)){
     const thick=98/segment.count,a=angle(segment.start)+.22,b=angle(segment.end)-.22,ri=c.r+segment.lane*thick+1,ro=ri+thick-2;
     poly(sector(ri,ro,a,b),eventColor(e),'#ffffff',1,e.id);
-    const area=(b-a)*thick;if(!labelSegment||area>labelSegment.area)labelSegment={a,b,ri,ro,thick,area};
+    const area=(b-a)*thick;if(!labelSegment||area>labelSegment.area)labelSegment={...segment,area};
   }
   if(!labelSegment)continue;
-  const {a,b,ri,ro,thick}=labelSegment,mid=(a+b)/2,tangential=tangentialEvent(e,segments.get(e.id)[0].count,index,active.length);
-  const rotation=tangential?tangentRotation(mid):(mid>180?mid-270:mid-90);
-  const arcRoom=((ri+ro)/2)*(b-a)*Math.PI/180-6;
-  const width=tangential?arcRoom:thick-9,height=tangential?thick-8:arcRoom;
-  const {lines,size}=fitEventLabel(e.name,width,height,plan.labelSize,undefined,!tangential);
+  const {lines,size,ri,ro,mid,rotation}=eventLabelLayout(e,labelSegment,index,active.length);
   const [cx,cy]=point((ri+ro)/2,mid),rr=rotation*Math.PI/180;
   lines.forEach((line,i)=>{const dy=(i-(lines.length-1)/2)*size*1.15;text(cx-Math.sin(rr)*dy,cy+Math.cos(rr)*dy,line,size,labelColor(eventColor(e)),rotation,false,e.id)});
 }
@@ -306,24 +339,30 @@ const wheelchartHeader=String.raw`\documentclass[border=6pt]{standalone}
 \usepackage{xfp}
 \usetikzlibrary{decorations.text}
 
-% Wrap with TeX's font metrics and reduce only labels that exceed their week.
+% Use the shared display label's explicit lines; fit with TeX font metrics.
 \newsavebox{\ywlabelbox}
 \newcommand{\ywfitlabel}[3]{%
   \begingroup
   \def\ywlabelsize{10}%
   \def\ywlabeltry{%
-    \sbox{\ywlabelbox}{\parbox{#1}{\centering
-      \fontsize{\ywlabelsize}{\fpeval{1.2*\ywlabelsize}}\selectfont #3}}%
-    \ifdim\dimexpr\ht\ywlabelbox+\dp\ywlabelbox\relax>#2\relax
+    \sbox{\ywlabelbox}{{\fontsize{\ywlabelsize}{\fpeval{1.2*\ywlabelsize}}\selectfont
+      \shortstack[c]{#3}}}%
+    \def\ywlabelcrowded{0}%
+    \ifdim\wd\ywlabelbox>#1\relax\def\ywlabelcrowded{1}\fi
+    \ifdim\dimexpr\ht\ywlabelbox+\dp\ywlabelbox\relax>#2\relax\def\ywlabelcrowded{1}\fi
+    \ifnum\ywlabelcrowded=1
       \ifdim\ywlabelsize pt>7pt
         \edef\ywlabelsize{\fpeval{\ywlabelsize-0.5}}%
         \ywlabeltry
       \else
-        \resizebox*{!}{#2}{\usebox{\ywlabelbox}}%
+        \ifdim\wd\ywlabelbox>#1\relax
+          \sbox{\ywlabelbox}{\resizebox{#1}{!}{\usebox{\ywlabelbox}}}%
+        \fi
+        \ifdim\dimexpr\ht\ywlabelbox+\dp\ywlabelbox\relax>#2\relax
+          \resizebox*{!}{#2}{\usebox{\ywlabelbox}}%
+        \else\usebox{\ywlabelbox}\fi
       \fi
-    \else
-      \usebox{\ywlabelbox}%
-    \fi}%
+    \else\usebox{\ywlabelbox}\fi}%
   \ywlabeltry
   \endgroup}
 
@@ -402,11 +441,12 @@ function latex(){
   cats.forEach((cat,c)=>{
     const s=slots[c],events=plan.events.filter(e=>e.category===cat.id&&e.start!==null&&e.start<=plan.end&&e.end>=plan.start).sort((a,b)=>a.start-b.start||b.end-a.end);
     const segments=svgEventSegments(events,plan.start,plan.end);
+    const displayLabels=new Map(events.map(e=>[e.id,eventLabelLayout(e,segments.get(e.id)[0],c,cats.length).label]));
     const points=events.filter(e=>e.start===e.end&&segments.get(e.id).every(segment=>segment.count===1)&&!tangentialEvent(e,1,c,cats.length));
     const layered=events.filter(e=>!points.includes(e));
     // A week's last event supplies its fill; all unique names remain visible.
     const labels=new Map(),fills=new Map();
-    points.forEach(e=>{const i=index(e.start);if(!labels.has(i))labels.set(i,new Set());labels.get(i).add(wheelText(e.name).replace(/\//g,String.raw`/\allowbreak{}`));fills.set(i,colorName(eventColor(e)))});
+    points.forEach(e=>{const i=index(e.start);if(!labels.has(i))labels.set(i,new Set());labels.get(i).add(wheelText(displayLabels.get(e.id)).replace(/\//g,String.raw`/\allowbreak{}`));fills.set(i,colorName(eventColor(e)))});
     const groups=new Map();[...fills].sort((a,b)=>a[0]-b[0]).forEach(([i,color])=>{if(!groups.has(color))groups.set(color,[]);groups.get(color).push(i)});
     const opts=[`radius={${s.rin}}{${s.rout}}`,`slices style={${colorName(cat.color)},draw=lightgray}`];
     const labelWidth=fmt(s.rout-s.rin-0.2);
@@ -425,13 +465,13 @@ function latex(){
         out.push('% EVENT SEGMENT '+JSON.stringify({name:e.name,start:part.start,end:part.end-1,lane:part.lane,count:part.count}));
         if(!tangentialEvent(e,part.count,c,cats.length)){
           const width=fmt(Math.max(.1,thickness-.2)),height=fmt((rin+rout)*Math.sin(Math.min(Math.PI/2,Math.PI*(358/360)*(part.end-part.start)/count))*28.45274);
-          options.push('wheel data{1}={\\ywfitlabel{'+width+'cm}{'+height+'pt}{'+wheelText(e.name).replace(/\//g,String.raw`/\allowbreak{}`)+'}}','total count=1');
+          options.push('wheel data{1}={\\ywfitlabel{'+width+'cm}{'+height+'pt}{'+wheelText(displayLabels.get(e.id)).replace(/\//g,String.raw`/\allowbreak{}`)+'}}','total count=1');
           out.push(chart(options));
         }else out.push(chart(options));
       }
       if(tangentialEvent(e,labelPart.count,c,cats.length)){
         const thickness=(s.rout-s.rin)/labelPart.count,rin=s.rin+labelPart.lane*thickness;
-        spanLabels.push(chart([String.raw`arc data=\WCvarA`,String.raw`domain/.expanded=\wcdomain{`+(Math.max(plan.start,e.start)-plan.start)+'/'+count+'}{'+(Math.min(plan.end,e.end)+1-plan.start)+'/'+count+'}',`radius={${fmt(rin)}}{${fmt(rin+thickness)}}`,'slices style={fill=none,draw=none}'],'{'+arcText(e.name)+'}'));
+        spanLabels.push(chart([String.raw`arc data=\WCvarA`,String.raw`domain/.expanded=\wcdomain{`+(Math.max(plan.start,e.start)-plan.start)+'/'+count+'}{'+(Math.min(plan.end,e.end)+1-plan.start)+'/'+count+'}',`radius={${fmt(rin)}}{${fmt(rin+thickness)}}`,'slices style={fill=none,draw=none}'],'{'+arcText(displayLabels.get(e.id))+'}'));
       }
     }
     out.push(...spanLabels);
@@ -537,4 +577,4 @@ function initSettingsResize(){
 }
 initSettingsResize();
 let printFilters;window.addEventListener('beforeprint',()=>{printFilters=[$('search').value,$('filter').value];$('search').value='';$('filter').value='';renderRows()});window.addEventListener('afterprint',()=>{if(printFilters){[$('search').value,$('filter').value]=printFilters;renderRows()}});
-if(typeof module!=='undefined')module.exports={fitEventLabel,validateOrientationLimits,tangentialEvent,settingsSizing,showUnscheduled,addSubcategory,removeSubcategory,exampleCSV,loadExample,applyInlinePatch,hexToHsv,hsvToHex,resetDefaults,svgEventSegments,tangentRotation,categoryDisplayOrder,reorderCategory,openInOverleaf,monthColors,validColor,eventColor,prepareCSV,highlights,activeCategories,defaultCategories,openEditor,selectTab,parseWeek,monday,weeksIn,validateEvent,validatePlan,parseCSV,csv,texEscape,latex,makeScene,setPlan:p=>{plan=p;scene=makeScene()},getPlan:()=>plan};
+if(typeof module!=='undefined')module.exports={displayLabel,eventLabelLayout,fitEventLabel,validateOrientationLimits,tangentialEvent,settingsSizing,showUnscheduled,addSubcategory,removeSubcategory,exampleCSV,loadExample,applyInlinePatch,hexToHsv,hsvToHex,resetDefaults,svgEventSegments,tangentRotation,categoryDisplayOrder,reorderCategory,openInOverleaf,monthColors,validColor,eventColor,prepareCSV,highlights,activeCategories,defaultCategories,openEditor,selectTab,parseWeek,monday,weeksIn,validateEvent,validatePlan,parseCSV,csv,texEscape,latex,makeScene,setPlan:p=>{plan=p;scene=makeScene()},getPlan:()=>plan};

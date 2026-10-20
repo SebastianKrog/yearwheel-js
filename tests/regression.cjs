@@ -52,7 +52,7 @@ const templatePlan=base({events:[
 a.setPlan(templatePlan);let tex=a.latex();
 for(const token of [String.raw`\documentclass[border=6pt]{standalone}`,String.raw`\usepackage{wheelchart}`,String.raw`arc data expand=f`,String.raw`plot={{#1}:{#2+0*(450-#1)}}`,String.raw`wheel data style={align=center,rotate=\WCmidangle+(\WCmidangle<90?0:(\WCmidangle<270?180:0))}`, 'radius={2.5}{4.3}','radius={4.4}{4.8}','radius={4.9}{6.7}','radius={6.8}{7.1}','radius={7.2}{9}','radius={9.1}{9.5}','radius={9.7}{10.1}','radius={10.1}{10.5}','radius={10.6}{11.1}','total count=53','slices arrow={1}{0}','gap polar=-4','gap radius=0.02',String.raw`middle={\fontsize{48}{60}\selectfont2026}`])assert(tex.includes(token),token);
 assert(!/longtable|newpage|Unscheduled sentinel/.test(tex));
-assert(tex.includes(String.raw`Interne\\Midler`));assert(tex.includes(String.raw`Second, A/\allowbreak{}B \& 50\%\_\{x\}`));
+assert(tex.includes(String.raw`Interne\\Midler`));assert(tex.replace(/\\\\/g,' ').includes(String.raw`Second, A/\allowbreak{}B \& 50\%\_\{x\}`));
 assert(tex.includes(String.raw`domain/.expanded=\wcdomain{1/53}{5/53}`));
 for(const r of ['radius={4.9}{5.5}','radius={5.5}{6.1}','radius={6.1}{6.7}'])assert(tex.includes(r));
 assert(tex.includes('Grant, A/B}}')); 
@@ -187,7 +187,7 @@ const overlapTex=a.latex(),exportedParts=overlapTex.split('\n').filter(line=>lin
 assert.deepEqual(exportedParts.filter(p=>p.name==='Long span').map(p=>[p.start,p.end,p.count]),[[2,8,3]]);
 assert.equal(exportedParts.find(p=>p.name==='Point collision').count,3);
 assert(overlapTex.includes('radius={2.5}{4.3}'));assert(overlapTex.includes('radius={2.5}{3.1}'));
-assert.equal((overlapTex.match(/\]\{\{Long span\}\}/g)||[]).length,1);assert.equal((overlapTex.match(/\]\{\{Short span\}\}/g)||[]).length,1);
+assert.equal((overlapTex.replace(/\\\\/g,' ').match(/\]\{\{Long span\}\}/g)||[]).length,1);assert.equal((overlapTex.replace(/\\\\/g,' ').match(/\]\{\{Short span\}\}/g)||[]).length,1);
 
 // Partially overlapping example pairs are half-height for their entire spans.
 const fixedPairs=base({events:[{name:'Research grant',category:'funding',start:9,end:14},{name:'Funding call',category:'funding',start:10,end:12},{name:'Project delivery',category:'activity',start:20,end:24},{name:'Mid-project review',category:'activity',start:23,end:25},{name:'Alone',category:'activity',start:30,end:31}]});
@@ -234,6 +234,21 @@ const fitScene=a.makeScene();for(const e of fittedExample.events.filter(e=>e.sta
  const labels=fitScene.filter(o=>o.type==='text'&&o.id===e.id);assert(labels.length>0,e.name);assert.equal(labels.map(o=>o.value).join(' ').replace(/\s+/g,' '),e.name.replace(/\s+/g,' '));assert(labels.every(o=>!o.value.includes('…')));
 }
 assert.equal(fitScene.filter(o=>o.type==='text'&&o.id===fittedExample.events.find(e=>e.name==='Review').id).length,1);
+
+// A derived display label supplies the identical line breaks to SVG and TeX.
+assert.equal(a.displayLabel('Application deadline',85,25,11),'Application\ndeadline');
+assert.equal(a.displayLabel('Summer conference',85,90,11),'Summer\nconference');
+assert.equal(a.displayLabel('Review',30,40,11),'Review');
+assert.equal(a.displayLabel('First\nSecond',100,100,11),'First\nSecond');
+assert.equal(a.displayLabel(String.raw`First\\Second`,100,100,11),'First\nSecond');
+assert(!a.displayLabel('Research and development',70,60,11).split('\n').includes('and'));
+a.loadExample();const displayPlan=a.getPlan(),originalDisplayPlan=JSON.stringify(displayPlan),displayCsv=a.csv(displayPlan.events),sharedTex=a.latex(),sharedScene=a.makeScene();
+for(const [ring,c] of a.activeCategories().entries()){
+ const events=displayPlan.events.filter(e=>e.category===c.id&&e.start!==null),parts=a.svgEventSegments(events,displayPlan.start,displayPlan.end);
+ for(const e of events){const label=a.eventLabelLayout(e,parts.get(e.id)[0],ring,3).label;assert.equal(sharedScene.filter(o=>o.type==='text'&&o.id===e.id).map(o=>o.value).join('\n'),label);assert(sharedTex.includes(label.split('\n').map(a.texEscape).join('\\\\')),label)}
+}
+assert.equal(JSON.stringify(a.getPlan()),originalDisplayPlan);assert.equal(a.csv(a.getPlan().events),displayCsv);assert(!displayCsv.includes('Summer\nconference'));
+assert(sharedTex.includes('\\shortstack[c]{#3}'));assert(sharedTex.includes('\\ifdim\\wd\\ywlabelbox>#1'));
 
 // Startup must restore an old saved plan before rendering (including migrations).
 const bootPrelude=fs.readFileSync(__filename,'utf8').split("const a=require")[0];
