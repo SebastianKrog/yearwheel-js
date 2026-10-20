@@ -6,14 +6,14 @@ function base(extra={}){return a.validatePlan({year:2026,start:1,end:53,title:'R
 assert.equal(a.weeksIn(2026),53);assert.equal(a.weeksIn(2025),52);assert.equal(a.parseWeek('2026-02-02',2026),6);assert.equal(a.parseWeek('30-04-2026',2026),18);assert.throws(()=>a.parseWeek('31-02-2026',2026));
 assert.equal(a.monthColors[8],'#aa4488');assert.equal(a.monthColors[2],'#00997a');assert.equal(new Set(a.monthColors).size,12);a.setPlan(base());assert.equal(a.validColor('red'),'#ff0000');assert.equal(a.validColor('SteelBlue'),'#4682b4');assert.equal(a.validColor('rebeccapurple'),'#663399');assert.equal(a.validColor('#abc'),'#aabbcc');assert.equal(a.validColor('midpurple'),'#bfa3ec');assert.throws(()=>a.validColor('var(--red)'));
 let p=base({highlights:'12, 24–26'});assert.equal(p.highlightGroups[0].color,'#ff0000');a.setPlan(p);assert(a.highlights().has(26));
-let imported=a.prepareCSV('category;date;end_date;name;color\nactivity;2;5;First;highlight\nconference;8;;Second;\n;;;;\nconference;;;Undated;steelblue');assert.equal(imported.events.length,3);assert.equal(imported.events[2].start,null);assert.equal(imported.events[0].color,'highlight');assert.equal(imported.events[1].color,'');p={...p,...imported};a.setPlan(p);assert.equal(a.activeCategories().length,2);assert.equal(a.eventColor(p.events[0]),p.categories[0].highlight);assert.equal(a.eventColor(p.events[1]),p.categories[2].color);
+let imported=a.prepareCSV('category;date;end_date;name;color\nactivity;2;5;First;highlight\nconference;8;;Second;\n;;;;\nconference;;;Undated;steelblue');assert.equal(imported.events.length,3);assert.equal(imported.events[2].start,null);assert.equal(imported.events[0].color,'highlight');assert.equal(imported.events[1].color,'');p={...p,...imported};a.setPlan(p);assert.equal(a.activeCategories().length,2);assert.equal(a.eventColor(p.events[0]),p.categories[0].highlight);assert.equal(a.eventColor(p.events[1]),p.categories[2].highlight);
 let scene=a.makeScene();assert(!scene.filter(o=>o.type==='poly').some(o=>o.pts.some(([x,y])=>Math.hypot(x-500,y-500)<215.9)),'Inner ring must be absent');
 p.categories[0].name='Research & grants';p.categories[0].highlight='#ff00ff';assert.equal(a.eventColor(p.events[0]),'#ff00ff');assert(a.csv(p.events).includes('Research & grants'));assert(a.latex().includes(String.raw`Research {\&} grants`));
 p.highlightGroups=[{weeks:'2-4',color:'#ff0000'},{weeks:'4, 8',color:'#0000ff'}];a.setPlan(p);assert.equal(a.highlights().get(2),'#ff0000');assert.equal(a.highlights().get(4),'#0000ff');assert(a.makeScene().some(o=>o.type==='text'&&o.value==='8'&&o.fill==='#0000ff'));
 const restored=base(JSON.parse(JSON.stringify(p)));assert.deepEqual(restored.categories,p.categories);assert.deepEqual(restored.highlightGroups,p.highlightGroups);assert.equal(restored.events[0].color,'highlight');
 const before=p.events.map(e=>[e.name,e.start,e.end,e.color]);const round=a.prepareCSV(a.csv(p.events));assert.deepEqual(round.events.map(e=>[e.name,e.start,e.end,e.color]),before);
 a.setPlan(base());const custom=a.prepareCSV('category,date,name,color\nClinical,5,A,highlight\nTeaching,6,B,');assert.equal(custom.categories[0].name,'Clinical');assert.equal(custom.categories[1].name,'Teaching');assert.equal(custom.events[0].category,'activity');assert.equal(a.prepareCSV('date,name\n4,No category').events[0].category,'activity');assert.throws(()=>a.prepareCSV('category,date,name\na,1,A\nb,2,B\nc,3,C\nd,4,D'));
-a.setPlan(base({...custom}));const id=a.getPlan().events[0].id;$('rows').onclick({target:{closest(selector){return selector==='[data-modal-edit]'?{dataset:{modalEdit:id}}:null}}});assert.equal($('editor').open,true);assert.equal($('event-name').value,'A');assert.equal($('event-color-mode').value,'highlight');
+a.setPlan(base({...custom}));const id=a.getPlan().events[0].id;$('rows').onclick({target:{closest(selector){return selector==='[data-modal-edit]'?{dataset:{modalEdit:id}}:null}}});assert.equal($('editor').open,true);assert.equal($('event-name').value,'A');assert.equal($('event-color-mode').value,'normal');
 // Editor lists are outer-to-inner while saved category arrays preserve old inner-to-outer order.
 const ordered=base({events:[{category:'activity',date:5,name:'Activity ring',color:'highlight'},{category:'funding',date:6,name:'Funding ring'},{category:'conference',date:7,name:'Conference ring'}]});a.setPlan(ordered);
 assert.deepEqual(a.categoryDisplayOrder().map(c=>c.id),['conference','funding','activity']);
@@ -62,7 +62,7 @@ assert(tex.includes(String.raw`\ywfitlabel{1.6cm}`));assert(tex.includes('\\ifdi
 assert.equal(a.validColor('darkgreen'),'#54b8b4');assert.equal(a.validColor('darkblue'),'#5893c1');
 assert.equal(a.validColor('lightblue'),'#d7e5f0');assert.equal(a.validColor('green'),'#008000');assert.equal(a.validColor('red'),'#ff0000');
 const wrapped=a.prepareCSV('category,date,name,color\nactivity,5,"Interne\\\\Midler",darkgreen\nconference,13,"DKFD\nabstract",darkblue');
-assert.equal(wrapped.events[0].color,'#54b8b4');assert.equal(wrapped.events[1].color,'highlight');assert.equal(wrapped.events[1].subcategory,'blue');
+assert.equal(wrapped.events[0].color,'#54b8b4');assert.equal(wrapped.events[1].color,'#5893c1');assert.equal(wrapped.events[1].subcategory,'blue');
 a.setPlan(base({...wrapped}));assert(a.latex().includes(String.raw`Interne\\Midler`));assert(a.latex().includes(String.raw`DKFD\\abstract`));
 const originalNames=a.getPlan().events.map(e=>e.name);a.latex();assert.deepEqual(a.getPlan().events.map(e=>e.name),originalNames);
 const wrapRoundtrip=a.prepareCSV(a.csv(a.getPlan().events));assert.deepEqual(wrapRoundtrip.events.map(e=>e.name),originalNames);
@@ -87,7 +87,7 @@ const subPlan=base({events:[
  {category:'conference',subcategory:'purple',date:8,name:'Purple highlight',color:'highlight'},
  {category:'conference',subcategory:'purple',date:9,name:'Explicit override',color:'#123456'}
 ]});a.setPlan(subPlan);const conference=subPlan.categories.find(c=>c.id==='conference');
-assert.deepEqual(subPlan.events.slice(2).map(e=>a.eventColor(e)),['#98bcd9','#5893c1','#bfa3ec','#9879ce','#123456']);
+assert.deepEqual(subPlan.events.slice(2).map(e=>a.eventColor(e)),['#98bcd9','#98bcd9','#bfa3ec','#bfa3ec','#123456']);
 assert.equal(a.activeCategories().length,3);assert.equal((a.latex().match(/% CATEGORY /g)||[]).length,3);
 assert($('categories').innerHTML.includes('data-subcategory="purple"'));
 a.openEditor(subPlan.events[4].id);assert.equal($('event-subcategory').value,'purple');assert.equal($('event-subcategory-row').hidden,false);assert($('event-subcategory').innerHTML.includes('Blue'));
@@ -98,7 +98,7 @@ assert.equal(a.eventColor(a.getPlan().events[2]),'#aa55cc');assert.equal(a.event
 $('categories').onchange({target:{dataset:{subcategoryField:'name'},value:'Purple meetings',closest(selector){return selector==='[data-category]'?{dataset:{category:'conference'}}:{dataset:{subcategory:'purple'}}}}});
 const subsRoundtrip=a.prepareCSV(a.csv(a.getPlan().events));assert.deepEqual(subsRoundtrip.events.map(e=>[e.subcategory,e.color]),a.getPlan().events.map(e=>[e.subcategory,e.color]));assert.deepEqual(base(JSON.parse(JSON.stringify(a.getPlan()))).categories,a.getPlan().categories);
 const oldColours=a.prepareCSV('category,date,name,color\nconference,1,Blue normal,midblue\nconference,2,Blue strong,darkblue\nconference,3,Purple normal,midpurple\nconference,4,Purple strong,darkpurple');
-assert.deepEqual(oldColours.events.map(e=>[e.subcategory,e.color]),[['blue',''],['blue','highlight'],['purple',''],['purple','highlight']]);
+assert.deepEqual(oldColours.events.map(e=>[e.subcategory,e.color]),[['blue',''],['blue','#5893c1'],['purple',''],['purple','#9879ce']]);
 assert.throws(()=>a.validateEvent({category:'funding',subcategory:'purple',date:1,name:'Wrong ring'},53));
 // Two-ring imports visibly uncheck the unused category; re-enabling is stable.
 a.setPlan(base());const twoImport=a.prepareCSV('category,date,name\nactivity,1,A\nconference,2,C');a.setPlan(base({...twoImport}));assert.equal(a.getPlan().categories.find(c=>c.id==='funding').enabled,false);
@@ -144,7 +144,7 @@ assert.throws(()=>a.applyInlinePatch(inlineId,{name:' '}));assert.throws(()=>a.a
 
 // Subcategory creation/removal preserves events and inheritance; empty lists survive restore.
 a.setPlan(base());const createdSub=a.addSubcategory('activity');const newSub=a.getPlan().categories[0].subcategories[0];
-assert.equal(newSub.id,createdSub);assert.equal(newSub.color,a.getPlan().categories[0].color);assert.equal(newSub.highlight,a.getPlan().categories[0].highlight);
+assert.equal(newSub.id,createdSub);assert.equal(newSub.color,a.getPlan().categories[0].highlight);assert.equal(newSub.highlight,undefined);
 const nextSub=a.addSubcategory('activity');assert.notEqual(nextSub,createdSub);assert.equal(a.getPlan().categories[0].subcategories[1].name,'Subcategory 2');
 a.setPlan(base({categories:a.getPlan().categories,events:[{name:'Keep highlight',category:'activity',subcategory:createdSub,start:2,color:'highlight'},{name:'Keep custom',category:'activity',subcategory:createdSub,start:3,color:'#abc'},{name:'Keep blue',category:'conference',subcategory:'blue',start:4}]}));
 const oldSubEvents=a.getPlan().events.map(e=>({...e}));assert(a.removeSubcategory('activity',createdSub));assert.equal(a.getPlan().events.length,3);
@@ -167,6 +167,15 @@ $('search').value='unrelated';$('filter').value='activity';a.showUnscheduled();
 assert.equal($('schedule-filter').value,'unscheduled');assert.equal($('search').value,'');assert.equal($('filter').value,'');assert.equal($('events-panel').hidden,false);assert($('rows').innerHTML.includes('Undated example'));assert(!$('rows').innerHTML.includes('Scheduled example'));
 $('schedule-filter').value='scheduled';$('schedule-filter').onchange();assert($('rows').innerHTML.includes('Scheduled example'));assert(!$('rows').innerHTML.includes('Undated example'));
 $('schedule-filter').value='';$('schedule-filter').onchange();assert($('rows').innerHTML.includes('Undated example'));assert($('rows').innerHTML.includes('Scheduled example'));
+
+// Background/event separation and migration of old two-colour subcategories.
+const oldPalette=a.defaultCategories();oldPalette[2].subcategories[0].highlight='#5893c1';
+const migratedPalette=a.validatePlan({...base(),version:2,categories:oldPalette,events:[{name:'Old highlighted child',category:'conference',subcategory:'blue',start:8,color:'highlight'},{name:'Child default',category:'conference',subcategory:'blue',start:9}]});
+a.setPlan(migratedPalette);assert.equal(migratedPalette.version,3);assert.equal(migratedPalette.categories[2].subcategories[0].highlight,undefined);assert.equal(a.eventColor(migratedPalette.events[0]),'#5893c1');assert.equal(migratedPalette.events[0].color,'#5893c1');assert.equal(a.eventColor(migratedPalette.events[1]),'#98bcd9');
+assert.equal(a.eventColor({category:'activity',color:''}),migratedPalette.categories[0].highlight);assert.equal(a.eventColor({category:'activity',color:'highlight'}),migratedPalette.categories[0].highlight);
+const backgroundOnly=migratedPalette.categories[0].color;migratedPalette.categories[0].color='#111111';assert.equal(a.eventColor({category:'activity',color:''}),migratedPalette.categories[0].highlight);migratedPalette.categories[0].color=backgroundOnly;
+
+assert.deepEqual(base(JSON.parse(JSON.stringify(migratedPalette))).categories,migratedPalette.categories);
 
 // Startup must restore an old saved plan before rendering (including migrations).
 const bootPrelude=fs.readFileSync(__filename,'utf8').split("const a=require")[0];
