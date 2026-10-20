@@ -112,7 +112,7 @@ $('categories').onchange({target:{dataset:{categoryField:'enabled'},checked:fals
 
 
 
-// SVG lanes shrink only the portions where events actually overlap.
+// SVG overlap groups keep constant lanes across the complete event.
 const svgPlan=base({ringSelectionExplicit:true,events:[
  {category:'funding',date:1,end_date:6,name:'Long span'},
  {category:'funding',date:3,end_date:4,name:'Overlap'},
@@ -120,10 +120,10 @@ const svgPlan=base({ringSelectionExplicit:true,events:[
  {category:'conference',date:15,name:'Conference'}
 ]});a.setPlan(svgPlan);const originalSvgData=JSON.stringify(a.getPlan()),exportBeforeScene=a.latex();
 const fundingEvents=svgPlan.events.filter(e=>e.category==='funding');const local=a.svgEventSegments(fundingEvents,1,53);
-assert.deepEqual(local.get(fundingEvents[0].id).map(x=>[x.start,x.end,x.count]),[[1,3,1],[3,5,2],[5,7,1]]);
+assert.deepEqual(local.get(fundingEvents[0].id).map(x=>[x.start,x.end,x.count]),[[1,7,2]]);
 assert.equal(local.get(fundingEvents[2].id)[0].count,1);
 const svgScene=a.makeScene(),shapesFor=e=>svgScene.filter(o=>o.type==='poly'&&o.id===e.id),radialWidth=shape=>{const rs=shape.pts.map(([x,y])=>Math.hypot(x-500,y-500));return Math.max(...rs)-Math.min(...rs)};
-assert.deepEqual(shapesFor(fundingEvents[0]).map(radialWidth).map(x=>Math.round(x)),[96,47,96]);assert.equal(Math.round(radialWidth(shapesFor(fundingEvents[2])[0])),96);
+assert.deepEqual(shapesFor(fundingEvents[0]).map(radialWidth).map(x=>Math.round(x)),[47]);assert.equal(Math.round(radialWidth(shapesFor(fundingEvents[2])[0])),96);
 const spanLabel=svgScene.find(o=>o.type==='text'&&o.id===fundingEvents[0].id),spanAngle=(Math.atan2(spanLabel.x-500,500-spanLabel.y)*180/Math.PI+360)%360;
 assert(Math.abs(spanLabel.rotate-a.tangentRotation(spanAngle))<1e-7);
 const pointLabel=svgScene.find(o=>o.type==='text'&&o.id===fundingEvents[2].id);assert(Math.abs(pointLabel.rotate-spanLabel.rotate)>1,'Single-week labels remain radial.');
@@ -181,13 +181,36 @@ const backgroundOnly=migratedPalette.categories[0].color;migratedPalette.categor
 
 assert.deepEqual(base(JSON.parse(JSON.stringify(migratedPalette))).categories,migratedPalette.categories);
 
-// TeX spans use full height alone and local halves/thirds for real overlaps.
+// TeX uses the same fixed overlap-group lanes as the SVG.
 a.setPlan(base({events:[{name:'Long span',category:'activity',start:2,end:8},{name:'Short span',category:'activity',start:4,end:6},{name:'Point collision',category:'activity',start:5}]}));
 const overlapTex=a.latex(),exportedParts=overlapTex.split('\n').filter(line=>line.startsWith('% EVENT SEGMENT ')).map(line=>JSON.parse(line.slice(16)));
-assert.deepEqual(exportedParts.filter(p=>p.name==='Long span').map(p=>[p.start,p.end,p.count]),[[2,3,1],[4,4,2],[5,5,3],[6,6,2],[7,8,1]]);
+assert.deepEqual(exportedParts.filter(p=>p.name==='Long span').map(p=>[p.start,p.end,p.count]),[[2,8,3]]);
 assert.equal(exportedParts.find(p=>p.name==='Point collision').count,3);
-assert(overlapTex.includes('radius={2.5}{4.3}'));assert(overlapTex.includes('radius={2.5}{3.4}'));assert(overlapTex.includes('radius={2.5}{3.1}'));
+assert(overlapTex.includes('radius={2.5}{4.3}'));assert(overlapTex.includes('radius={2.5}{3.1}'));
 assert.equal((overlapTex.match(/\]\{\{Long span\}\}/g)||[]).length,1);assert.equal((overlapTex.match(/\]\{\{Short span\}\}/g)||[]).length,1);
+
+// Partially overlapping example pairs are half-height for their entire spans.
+const fixedPairs=base({events:[{name:'Research grant',category:'funding',start:9,end:14},{name:'Funding call',category:'funding',start:10,end:12},{name:'Project delivery',category:'activity',start:20,end:24},{name:'Mid-project review',category:'activity',start:23,end:25},{name:'Alone',category:'activity',start:30,end:31}]});
+a.setPlan(fixedPairs);
+for(const category of ['funding','activity']){
+ const group=fixedPairs.events.filter(e=>e.category===category),parts=a.svgEventSegments(group,1,53);
+ for(const e of group){assert.equal(parts.get(e.id).length,1);assert.equal(parts.get(e.id)[0].count,e.name==='Alone'?1:2)}
+}
+// Touching inclusive endpoints collide; adjacent weeks reuse one full-height lane.
+const chain=[{id:'a',start:1,end:4},{id:'b',start:3,end:6},{id:'c',start:5,end:8},{id:'d',start:9,end:10}];
+const chainParts=a.svgEventSegments(chain,1,53);assert.deepEqual(chain.map(e=>chainParts.get(e.id)[0].count),[2,2,2,1]);assert.equal(chainParts.get('a')[0].lane,chainParts.get('c')[0].lane);
+assert.deepEqual(a.svgEventSegments(chain,4,6).get('a')[0],{start:4,end:5,lane:1,count:2});
+// Full-height automatic text switches at 2/4/6 weeks, outside to inside.
+for(const [ring,threshold] of [[2,2],[1,4],[0,6]]){
+ assert.equal(a.tangentialEvent({start:1,end:threshold-1},1,ring,3),false);
+ assert.equal(a.tangentialEvent({start:1,end:threshold},1,ring,3),true);
+}
+assert.equal(a.tangentialEvent({start:1,end:2},2,0,3),true);
+assert.equal(a.tangentialEvent({start:1,end:3},1,0,2),false);
+a.setPlan(base({eventOrientation:'radial',events:[{name:'Forced radial span',category:'conference',start:1,end:6}]}));
+assert.equal(a.tangentialEvent({start:1,end:6},2,2,3),false);assert(a.latex().includes('wheel data{1}={\\ywfitlabel'));
+a.setPlan(base({eventOrientation:'tangential'}));assert.equal(a.tangentialEvent({start:1,end:1},1,0,3),true);
+assert.equal(base(JSON.parse(JSON.stringify(a.getPlan()))).eventOrientation,'tangential');assert.equal(base({eventOrientation:'invalid'}).eventOrientation,'auto');
 
 // Startup must restore an old saved plan before rendering (including migrations).
 const bootPrelude=fs.readFileSync(__filename,'utf8').split("const a=require")[0];

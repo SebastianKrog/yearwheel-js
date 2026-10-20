@@ -91,3 +91,6 @@ main{max-width:none;padding:12px 20px 0}.workspace{grid-template-columns:340px m
 .workspace>aside .aside-bottom button{font-size:.833em;padding:.5em .7em}
 .workspace>aside .subcategory-remove,.workspace>aside [data-remove-group]{font-size:1.5em;width:1.222em;height:1.333em}
 }
+
+.orientation-hint{display:block;font-size:9px;line-height:1.4}#eventOrientation{font-size:12px;padding:6px 7px;margin-top:3px}
+@media screen and (min-width:801px){.workspace>aside #eventOrientation{font-size:1.2em;padding:.5em .583em}.workspace>aside .orientation-hint{font-size:.75em}}

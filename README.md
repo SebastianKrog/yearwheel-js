@@ -14,9 +14,9 @@ Browser-based replacement for the supplied R/Shiny annual wheel generator. No bu
 - Custom colour picker with a hue/saturation wheel, brightness slider, original palette swatches and hex/name entry. Changes apply only with Apply colour; Cancel and Escape discard them. Works for categories, subcategories, highlighted weeks and custom event colours; pointer/touch and keyboard controls are supported.
 - Multiple groups of coloured highlighted weeks (red by default). Later groups override earlier ones.
 - Saturated month colours retain the original intensity and progress from reddish purple in September through purple and blue to bluish green in March, shared by SVG and LaTeX.
-- Inclusive ISO week spans in both SVG and LaTeX; LaTeX uses the same local overlap allocation as SVG: full ring height alone, halves for two simultaneous events, thirds for three, and so on.
+- Inclusive ISO week spans in both SVG and LaTeX; LaTeX uses the same fixed overlap lanes as SVG: full ring height for isolated events, halves for groups requiring two lanes, thirds for three, and so on.
 - Correct 52/53-week ISO calendars, actual month boundaries and clipped partial-year spans.
-- SVG event lanes share ring width only where events overlap; isolated events and non-overlapping portions of spans use full-width slices. Span labels follow the tangent; single-week labels remain radial. Month and week labels also follow their ring tangent. Event names appear without automatic numbering in both the SVG and event list. Tiny slices omit text when it cannot fit; hover/click still exposes the full name. LaTeX retains the original wheelchart style while sharing the same local overlap allocation.
+- Overlapping SVG events keep their lane height for the full event duration; isolated events use full-width slices. Automatic labels follow the configured ring thresholds. Month and week labels also follow their ring tangent. Event names appear without automatic numbering in both the SVG and event list. Tiny slices omit text when it cannot fit; hover/click still exposes the full name. LaTeX retains the original wheelchart style while sharing the same fixed overlap lanes.
 - Reset defaults beside Clear events restores default category order, names, palettes and label size while preserving events, dates, highlighted weeks and the centre label. Event rows use compact screen spacing; print spacing is retained.
 - Click the unscheduled count below the wheel to open Events filtered to unscheduled items. The schedule filter offers All events, Scheduled and Unscheduled and combines with search/category filters.
 - Local browser storage, complete JSON backup/restore and CSV import/export. Nothing is synced between browsers.
@@ -39,7 +39,7 @@ The built-in example and CSV template demonstrate all three categories, Blue/Pur
 The PDF option opens the browser print dialog. Download LaTeX for consistent vector PDF compilation in Overleaf (pdfLaTeX). Latin text including Danish characters is supported by the pdfLaTeX export; arbitrary scripts or emoji may require another TeX engine/font setup. The SVG overview may shorten or number dense labels. LaTeX exports full names, keeps explicit `\\` and actual newline breaks, and merges same-week labels with line breaks. TeX wraps point labels using the ring’s available width and its own font metrics, with extra break opportunities after slashes. Crowded labels reduce font size to fit the week’s available height. The event editor accepts multiline names; export wrapping never changes the saved event names. Notes remain in the editor and CSV/JSON exports. The standalone PDF contains only the wheel.
 
 ## Regression checks
-Run `node tests/regression.cjs` for calendar, colour, category, two-ring geometry, inheritance, highlight-group, modal, roundtrip and replace/append checks, plus original wheelchart geometry, multiline/full event labels, local proportional span heights, range-local slice indices, 52/53-week dates, disabled-category exclusion, reorder behavior and identical Overleaf/download source. Set `YEARWHEEL_QA_TEX=/absolute/path/test.tex` to generate the representative two-ring export for pdfLaTeX QA.
+Run `node tests/regression.cjs` for calendar, colour, category, two-ring geometry, inheritance, highlight-group, modal, roundtrip and replace/append checks, plus original wheelchart geometry, multiline/full event labels, fixed proportional span heights, range-local slice indices, 52/53-week dates, disabled-category exclusion, reorder behavior and identical Overleaf/download source. Set `YEARWHEEL_QA_TEX=/absolute/path/test.tex` to generate the representative two-ring export for pdfLaTeX QA.
 
 ## GitHub Pages
 
@@ -48,3 +48,7 @@ The `Test and deploy GitHub Pages` workflow checks the JavaScript and runs regre
 Local preview: `python3 -m http.server 8000 --directory dist`, then visit http://localhost:8000/.
 
 Plans are saved per browser and website origin. To move a plan from the existing hosted site to GitHub Pages, export its JSON backup on the old site and import it on the new site.
+
+Settings can be resized horizontally; text and controls enlarge with the panel. Drag the divider, use arrow keys (Shift for larger steps), or double-click to reset. Width is remembered on the device.
+
+Overlapping events keep a constant lane and proportional height throughout each overlap group in the SVG and TeX. Automatic text orientation switches full-height labels to tangential at 2 weeks in the outer ring, 4 in the middle, and 6 in the inner ring. Settings can force standard radial or tangential labels; JSON backups retain the choice.

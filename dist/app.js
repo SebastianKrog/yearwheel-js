@@ -17,7 +17,7 @@ function monday(y,w){const d=new Date(Date.UTC(y,0,4));d.setUTCDate(d.getUTCDate
 function weeksIn(y){return Math.round((monday(y+1,1)-monday(y,1))/604800000)}
 const fmt=d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'});
 function dateRange(a,b,y=plan.year){const d=monday(y,b);d.setUTCDate(d.getUTCDate()+6);return `${fmt(monday(y,a))} – ${fmt(d)}`}
-function defaultPlan(){const y=new Date().getFullYear();return {version:3,ringSelectionExplicit:true,title:'Annual plan',year:y,center:String(y),start:1,end:weeksIn(y),categories:defaultCategories(),highlightGroups:[],labelSize:11,events:[]}}
+function defaultPlan(){const y=new Date().getFullYear();return {version:3,ringSelectionExplicit:true,title:'Annual plan',year:y,center:String(y),start:1,end:weeksIn(y),categories:defaultCategories(),highlightGroups:[],labelSize:11,eventOrientation:'auto',events:[]}}
 let plan=defaultPlan(),editId=null,scene=[];
 try{const p=JSON.parse(localStorage.getItem(KEY));if(p)plan=validatePlan(p)}catch{}
 function validColor(value){const c=String(value||'').trim().toLowerCase();if(wheelPaletteNames.has(c))return legacy[c];if(/^#[0-9a-f]{6}$/.test(c))return c;if(/^#[0-9a-f]{3}$/.test(c))return '#'+c.slice(1).split('').map(x=>x+x).join('');if(cssColors[c])return cssColors[c];if(legacy[c])return legacy[c];throw Error(`Unsupported colour “${value}”. Use a standard colour name or hex colour.`)}
@@ -36,10 +36,10 @@ const thursday=new Date(date);thursday.setUTCDate(thursday.getUTCDate()+3-((thur
 return Math.floor((date-monday(year,1))/604800000)+1;
 }
 function validateEvent(e,max,year=plan.year,config=plan.categories){const raw=String(e.category||'').trim().toLowerCase(),cat=config.find(c=>c.id.toLowerCase()===raw||c.name.toLowerCase()===raw)||(!raw?config.find(c=>c.enabled):null);if(!cat)throw Error('Unknown category.');const category=cat.id,subRaw=String(e.subcategory||'').trim().toLowerCase(),sub=cat.subcategories?.find(s=>s.id.toLowerCase()===subRaw||s.name.toLowerCase()===subRaw);if(subRaw&&!sub)throw Error('Unknown subcategory for this category.');const start=parseWeek(e.start??e.date,year);let end=parseWeek(e.end??e.end_date,year);const duration=e.duration_weeks==null?'':String(e.duration_weeks).trim();if(start===null){if(end!==null||duration)throw Error('A start week or date is required when end or duration is supplied.');end=null}else{if(end===null){if(duration&&(!/^\d+$/.test(duration)||Number(duration)<1))throw Error('Duration must be a positive whole number of weeks.');end=duration?start+Number(duration)-1:start}if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end>max)throw Error(`Weeks must be integers from 1 to ${max}, with end ≥ start.`)}if(!String(e.name||'').trim())throw Error('An event name is required.');return {id:crypto.randomUUID(),name:String(e.name).trim().slice(0,160),category,...(sub?{subcategory:sub.id}:{}),start,end,color:eventColorInput(e.color),notes:String(e.notes||'').slice(0,2000)}}
-function validatePlan(p){const year=Number(p.year),max=weeksIn(year);if(!Number.isInteger(year)||year<1900||year>2100)throw Error('Year must be 1900–2100.');const start=Number(p.start),end=Number(p.end);if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end>max)throw Error('Invalid displayed week range.');if(!Array.isArray(p.events)||p.events.length>2000)throw Error('Invalid event list (maximum 2,000).');const categories=validateCategories(p.categories),highlightGroups=validateGroups(p.highlightGroups??(p.highlights?[{weeks:p.highlights,color:'red'}]:[]));const events=p.events.map(e=>{let value=e;if((p.version??2)<3&&e.subcategory&&e.color==='highlight'){const old=p.categories?.find(c=>c.id===e.category)?.subcategories?.find(sub=>sub.id===e.subcategory);if(old?.highlight&&validColor(old.highlight)!==categories.find(c=>c.id===e.category)?.subcategories.find(sub=>sub.id===e.subcategory)?.color)value={...e,color:old.highlight}}return validateEvent(value,max,year,categories)});if(!p.ringSelectionExplicit){const used=new Set(events.filter(e=>categories.find(c=>c.id===e.category)?.enabled).map(e=>e.category));if(used.size===2)for(const c of categories)c.enabled=used.has(c.id)}return {version:3,ringSelectionExplicit:true,title:String(p.title||'Annual plan').slice(0,80),year,center:String(p.center??year).slice(0,30),start,end,categories,highlightGroups,labelSize:Math.max(7,Math.min(16,Number(p.labelSize)||11)),events}}
+function validatePlan(p){const year=Number(p.year),max=weeksIn(year);if(!Number.isInteger(year)||year<1900||year>2100)throw Error('Year must be 1900–2100.');const start=Number(p.start),end=Number(p.end);if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end>max)throw Error('Invalid displayed week range.');if(!Array.isArray(p.events)||p.events.length>2000)throw Error('Invalid event list (maximum 2,000).');const categories=validateCategories(p.categories),highlightGroups=validateGroups(p.highlightGroups??(p.highlights?[{weeks:p.highlights,color:'red'}]:[]));const events=p.events.map(e=>{let value=e;if((p.version??2)<3&&e.subcategory&&e.color==='highlight'){const old=p.categories?.find(c=>c.id===e.category)?.subcategories?.find(sub=>sub.id===e.subcategory);if(old?.highlight&&validColor(old.highlight)!==categories.find(c=>c.id===e.category)?.subcategories.find(sub=>sub.id===e.subcategory)?.color)value={...e,color:old.highlight}}return validateEvent(value,max,year,categories)});if(!p.ringSelectionExplicit){const used=new Set(events.filter(e=>categories.find(c=>c.id===e.category)?.enabled).map(e=>e.category));if(used.size===2)for(const c of categories)c.enabled=used.has(c.id)}return {version:3,ringSelectionExplicit:true,title:String(p.title||'Annual plan').slice(0,80),year,center:String(p.center??year).slice(0,30),start,end,categories,highlightGroups,labelSize:Math.max(7,Math.min(16,Number(p.labelSize)||11)),eventOrientation:['auto','radial','tangential'].includes(p.eventOrientation)?p.eventOrientation:'auto',events}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(plan));$('saved').textContent='Saved on this device'}catch{$('saved').textContent='Storage unavailable · export a backup'}}
 function toast(msg){$('toast').textContent=msg;$('toast').hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').hidden=true,4500)}
-function sync(){for(const k of ['title','year','center','start','end','labelSize'])$(k).value=plan[k];$('end').max=$('start').max=weeksIn(plan.year);renderSettings();render()}
+function sync(){for(const k of ['title','year','center','start','end','labelSize','eventOrientation'])$(k).value=plan[k];$('end').max=$('start').max=weeksIn(plan.year);renderSettings();render()}
 function highlights(){const out=new Map();for(const g of plan.highlightGroups)for(const w of parseHighlights(g.weeks))out.set(w,g.color);return out}
 function categoryDisplayOrder(){return [...plan.categories].reverse()}
 function renderSettings(){const opts=categoryDisplayOrder().map(c=>`<option value="${esc(c.id)}">${esc(c.name)}${c.enabled?'':' (disabled)'}</option>`).join(''),oldFilter=$('filter').value;$('filter').innerHTML='<option value="">All categories</option>'+opts;$('filter').value=oldFilter;$('event-category').innerHTML=opts;
@@ -88,15 +88,31 @@ function point(r,a){return [500+r*Math.sin(a*Math.PI/180),500-r*Math.cos(a*Math.
 function sector(ri,ro,a,b){const n=Math.max(2,Math.ceil((b-a)/2)),v=[];for(let i=0;i<=n;i++)v.push(point(ro,a+(b-a)*i/n));for(let i=n;i>=0;i--)v.push(point(ri,a+(b-a)*i/n));return v}
 
 function tangentRotation(angle){return ((angle+90)%180+180)%180-90}
-// Subdivide only where the active set changes; compact lanes locally so a
-// collision in one week cannot shrink unrelated events elsewhere in the ring.
+// An overlap group shares fixed lanes for the complete duration of each event.
+// This keeps partially overlapping events rectangular instead of stepped.
 function svgEventSegments(events,start,end){
-  const cuts=[...new Set(events.flatMap(e=>[Math.max(start,e.start),Math.min(end,e.end)+1]))].sort((a,b)=>a-b),result=new Map(events.map(e=>[e.id,[]]));
-  for(let i=0;i<cuts.length-1;i++){
-    const a=cuts[i],b=cuts[i+1],active=events.filter(e=>e.start<b&&e.end>=a);
-    active.forEach((e,lane)=>{const segments=result.get(e.id),last=segments.at(-1);if(last&&last.end===a&&last.lane===lane&&last.count===active.length)last.end=b;else segments.push({start:a,end:b,lane,count:active.length})});
+  const result=new Map(events.map(e=>[e.id,[]]));
+  const ordered=events.filter(e=>e.start!==null&&e.start<=end&&e.end>=start)
+    .map(e=>({e,start:Math.max(start,e.start),end:Math.min(end,e.end)+1}))
+    .sort((a,b)=>a.start-b.start||b.end-a.end);
+  let group=[],groupEnd=-Infinity;
+  function flush(){
+    const lanes=[],placed=[];
+    for(const part of group){let lane=lanes.findIndex(until=>until<=part.start);if(lane<0)lane=lanes.length;lanes[lane]=part.end;placed.push({...part,lane})}
+    for(const part of placed)result.get(part.e.id).push({start:part.start,end:part.end,lane:part.lane,count:lanes.length});
   }
-  return result;
+  for(const part of ordered){
+    if(part.start>=groupEnd){flush();group=[];groupEnd=-Infinity}
+    group.push(part);groupEnd=Math.max(groupEnd,part.end);
+  }
+  flush();return result;
+}
+function tangentialEvent(e,laneCount,ringIndex,ringCount){
+  if(plan.eventOrientation==='radial')return false;
+  if(plan.eventOrientation==='tangential')return true;
+  const weeks=e.end-e.start+1;
+  const threshold=[6,4,2][3-ringCount+ringIndex];
+  return weeks>1&&(laneCount>1||weeks>=threshold);
 }
 
 function makeScene(){const s=[],n=plan.end-plan.start+1,angle=x=>1+358*(x-plan.start)/n;
@@ -116,7 +132,7 @@ for(const e of events){
     const area=(b-a)*thick;if(!labelSegment||area>labelSegment.area)labelSegment={a,b,ri,ro,thick,area};
   }
   if(!labelSegment)continue;
-  const {a,b,ri,ro,thick}=labelSegment,mid=(a+b)/2,tangential=e.end>e.start;
+  const {a,b,ri,ro,thick}=labelSegment,mid=(a+b)/2,tangential=tangentialEvent(e,segments.get(e.id)[0].count,index,active.length);
   const rotation=tangential?tangentRotation(mid):(mid>180?mid-270:mid-90);
   const arcRoom=((ri+ro)/2)*(b-a)*Math.PI/180-6;
   const width=tangential?arcRoom:thick-9,height=tangential?thick-8:arcRoom;
@@ -143,7 +159,7 @@ function svgString(){return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 
 function render(){scene=makeScene();$('wheel').innerHTML=svgString();$('preview-title').textContent=plan.title;$('range').textContent=`${plan.year} · Weeks ${plan.start}–${plan.end} · ${dateRange(plan.start,plan.end)}`;$('total').textContent=plan.events.length;const disabled=plan.events.filter(e=>!categoryMap()[e.category].enabled).length,visible=plan.events.filter(e=>categoryMap()[e.category].enabled&&e.start<=plan.end&&e.end>=plan.start).length;$('count').innerHTML=`${visible} of ${plan.events.length} events in view${disabled?' · '+disabled+' disabled':''}${plan.events.some(e=>e.start===null)?' · <a href="#events" data-show-unscheduled>'+plan.events.filter(e=>e.start===null).length+' unscheduled</a>':''}`;renderRows()}
 let inlineEdit=null;
 function renderRows(){$('inline-popup').hidePopover?.();inlineEdit=null;const q=$('search').value.toLowerCase(),f=$('filter').value,schedule=$('schedule-filter').value;const list=plan.events.map((e,i)=>({...e,num:i+1})).filter(e=>(!f||e.category===f)&&(!schedule||(schedule==='unscheduled'?e.start===null:e.start!==null))&&`${e.name} ${e.notes} ${eventCategoryName(e)}`.toLowerCase().includes(q)).sort((a,b)=>(a.start??Infinity)-(b.start??Infinity)||a.num-b.num);$('rows').innerHTML=list.map(e=>`<tr data-event="${e.id}" class="${categoryMap()[e.category].enabled?'':'disabled-event'}"><td data-inline="name" title="Double-click to edit name"><button class="edit-name" data-edit="${e.id}">${esc(e.name)}</button>${e.notes?`<small data-inline="notes" title="Double-click to edit notes">${esc(e.notes)}</small>`:''}</td><td data-inline="category" title="Double-click to edit category"><span class="badge" style="background:${categoryMap()[e.category].color}"><i class="dot" style="background:${eventColor(e)}"></i>${esc(eventCategoryName(e))}${categoryMap()[e.category].enabled?'':' · Disabled'}</span></td><td data-inline="weeks" title="Double-click to edit weeks">${e.start===null?'Unscheduled':`W${e.start}${e.end!==e.start?'–'+e.end:''}${e.end<plan.start||e.start>plan.end?' <small>Outside view</small>':''}`}</td><td data-inline="dates" title="Double-click to edit dates">${e.start===null?'—':dateRange(e.start,e.end)}</td><td class="row-actions"><button data-modal-edit="${e.id}" aria-label="Edit ${esc(e.name)}">Edit</button><button data-copy="${e.id}" aria-label="Duplicate ${esc(e.name)}">Duplicate</button></td></tr>`).join('');$('empty').hidden=list.length>0;$('empty').textContent=plan.events.length?'No events match your filters.':'No events yet. Add an event or import your existing CSV.'}
-for(const k of ['title','year','center','start','end','labelSize'])$(k).addEventListener(k==='labelSize'?'input':'change',()=>{let v=$(k).value;if(['year','start','end','labelSize'].includes(k))v=Number(v);const candidate={...plan,[k]:v};if(k==='year'){if(!Number.isInteger(v)||v<1900||v>2100){sync();return}if(plan.events.some(e=>e.end>weeksIn(v))){toast(`Some events use week 53, which does not exist in ${v}. Edit those events first.`);sync();return}candidate.end=Math.min(candidate.end,weeksIn(v));candidate.start=Math.min(candidate.start,candidate.end);if(plan.center===String(plan.year))candidate.center=String(v)}try{const validated=validatePlan(candidate);validated.events=plan.events;plan=validated;save();sync()}catch(e){toast(e.message);sync()}});
+for(const k of ['title','year','center','start','end','labelSize','eventOrientation'])$(k).addEventListener(k==='labelSize'?'input':'change',()=>{let v=$(k).value;if(['year','start','end','labelSize'].includes(k))v=Number(v);const candidate={...plan,[k]:v};if(k==='year'){if(!Number.isInteger(v)||v<1900||v>2100){sync();return}if(plan.events.some(e=>e.end>weeksIn(v))){toast(`Some events use week 53, which does not exist in ${v}. Edit those events first.`);sync();return}candidate.end=Math.min(candidate.end,weeksIn(v));candidate.start=Math.min(candidate.start,candidate.end);if(plan.center===String(plan.year))candidate.center=String(v)}try{const validated=validatePlan(candidate);validated.events=plan.events;plan=validated;save();sync()}catch(e){toast(e.message);sync()}});
 function openEditor(id=null){editId=id;const e=plan.events.find(x=>x.id===id);$('dialog-title').textContent=e?'Edit event':'Add event';$('event-name').value=e?.name||'';$('event-category').value=e?.category||plan.categories.find(c=>c.enabled).id;updateSubcategories(e?.subcategory||'');$('event-start').value=e?.start||plan.start;$('event-end').value=e?.end||plan.start;$('event-start').max=$('event-end').max=weeksIn(plan.year);$('event-color-mode').value=!e?.color||e.color==='highlight'?'normal':'custom';$('event-color').value=e?.color&&e.color!=='highlight'?e.color:eventPalette({category:$('event-category').value,subcategory:$('event-subcategory').value}).color;updateColorMode();$('event-notes').value=e?.notes||'';$('unscheduled').checked=!!e&&e.start===null;updateSchedule();$('delete').hidden=!e;updateDates();$('editor').showModal();$('event-name').focus()}
 function updateSchedule(){for(const id of ['event-start','event-end']){$(id).disabled=$('unscheduled').checked;$(id).required=!$('unscheduled').checked}updateDates()}
 $('unscheduled').onchange=updateSchedule;
@@ -218,7 +234,7 @@ function resetDefaults(){
     const extra=(old?.subcategories||[]).filter(sub=>!d.subcategories.some(x=>x.id===sub.id));
     return {...d,id:old?.id||d.id,subcategories:[...d.subcategories,...extra]};
   });
-  plan.labelSize=11;plan.ringSelectionExplicit=true;save();sync();toast('Default category names, order, colours and label size restored.');
+  plan.labelSize=11;plan.eventOrientation='auto';plan.ringSelectionExplicit=true;save();sync();toast('Default category names, order, colours, label size and orientation restored.');
 }
 $('reset-defaults').onclick=resetDefaults;
 
@@ -245,7 +261,7 @@ function exampleCSV(){
 function loadExample(){
   if(plan.events.length&&!confirm('Replace your events and settings with the example plan?'))return;
   const categories=defaultCategories(),events=parseCSV(exampleCSV()).map(e=>validateEvent(e,weeksIn(plan.year),plan.year,categories));
-  plan=validatePlan({...plan,title:'Example annual plan',center:String(plan.year),start:1,end:weeksIn(plan.year),labelSize:11,ringSelectionExplicit:true,categories,highlightGroups:[{weeks:'12,24–26',color:'#ff0000'},{weeks:'40–41',color:'#5893c1'}],events});save();sync();
+  plan=validatePlan({...plan,title:'Example annual plan',center:String(plan.year),start:1,end:weeksIn(plan.year),labelSize:11,eventOrientation:'auto',ringSelectionExplicit:true,categories,highlightGroups:[{weeks:'12,24–26',color:'#ff0000'},{weeks:'40–41',color:'#5893c1'}],events});save();sync();
 }
 $('demo').onclick=loadExample;
 function download(content,name,type){const url=URL.createObjectURL(new Blob([content],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
@@ -361,7 +377,7 @@ function latex(){
   cats.forEach((cat,c)=>{
     const s=slots[c],events=plan.events.filter(e=>e.category===cat.id&&e.start!==null&&e.start<=plan.end&&e.end>=plan.start).sort((a,b)=>a.start-b.start||b.end-a.end);
     const segments=svgEventSegments(events,plan.start,plan.end);
-    const points=events.filter(e=>e.start===e.end&&segments.get(e.id).every(segment=>segment.count===1));
+    const points=events.filter(e=>e.start===e.end&&segments.get(e.id).every(segment=>segment.count===1)&&!tangentialEvent(e,1,c,cats.length));
     const layered=events.filter(e=>!points.includes(e));
     // A week's last event supplies its fill; all unique names remain visible.
     const labels=new Map(),fills=new Map();
@@ -373,7 +389,7 @@ function latex(){
     for(const [color,weeks] of groups)opts.push(`slices style{${weeks.join(',')}}={${color},draw=lightgray}`);
     for(const [i,names] of [...labels].sort((a,b)=>a[0]-b[0]))opts.push(`wheel data{${i}}={\\ywfitlabel{${labelWidth}cm}{${labelHeight}pt}{${[...names].join('\\\\')}}}`);
     opts.push('total count='+count);out.push('% CATEGORY '+(c+1),chart(opts));
-    // Share the SVG's local radial allocation. Paint all fills before labels
+    // Share the SVG's fixed overlap lanes. Paint all fills before labels
     // so a neighbouring segment cannot cover part of a curved label.
     const spanLabels=[];
     for(const e of layered){
@@ -382,13 +398,13 @@ function latex(){
         const thickness=(s.rout-s.rin)/part.count,rin=s.rin+part.lane*thickness,rout=rin+thickness;
         const options=[String.raw`domain/.expanded=\wcdomain{`+(part.start-plan.start)+'/'+count+'}{'+(part.end-plan.start)+'/'+count+'}',`radius={${fmt(rin)}}{${fmt(rout)}}`,'slices style={'+colorName(eventColor(e))+',draw=lightgray}','total count=1'];
         out.push('% EVENT SEGMENT '+JSON.stringify({name:e.name,start:part.start,end:part.end-1,lane:part.lane,count:part.count}));
-        if(e.start===e.end){
-          const width=fmt(Math.max(.1,thickness-.2)),height=fmt((rin+rout)*Math.sin(Math.PI*(358/360)/count)*28.45274);
+        if(!tangentialEvent(e,part.count,c,cats.length)){
+          const width=fmt(Math.max(.1,thickness-.2)),height=fmt((rin+rout)*Math.sin(Math.min(Math.PI/2,Math.PI*(358/360)*(part.end-part.start)/count))*28.45274);
           options.push('wheel data{1}={\\ywfitlabel{'+width+'cm}{'+height+'pt}{'+wheelText(e.name).replace(/\//g,String.raw`/\allowbreak{}`)+'}}','total count=1');
           out.push(chart(options));
         }else out.push(chart(options));
       }
-      if(e.start!==e.end){
+      if(tangentialEvent(e,labelPart.count,c,cats.length)){
         const thickness=(s.rout-s.rin)/labelPart.count,rin=s.rin+labelPart.lane*thickness;
         spanLabels.push(chart([String.raw`arc data=\WCvarA`,String.raw`domain/.expanded=\wcdomain{`+(Math.max(plan.start,e.start)-plan.start)+'/'+count+'}{'+(Math.min(plan.end,e.end)+1-plan.start)+'/'+count+'}',`radius={${fmt(rin)}}{${fmt(rin+thickness)}}`,'slices style={fill=none,draw=none}'],'{'+arcText(e.name)+'}'));
       }
@@ -496,4 +512,4 @@ function initSettingsResize(){
 }
 initSettingsResize();
 let printFilters;window.addEventListener('beforeprint',()=>{printFilters=[$('search').value,$('filter').value];$('search').value='';$('filter').value='';renderRows()});window.addEventListener('afterprint',()=>{if(printFilters){[$('search').value,$('filter').value]=printFilters;renderRows()}});
-if(typeof module!=='undefined')module.exports={settingsSizing,showUnscheduled,addSubcategory,removeSubcategory,exampleCSV,loadExample,applyInlinePatch,hexToHsv,hsvToHex,resetDefaults,svgEventSegments,tangentRotation,categoryDisplayOrder,reorderCategory,openInOverleaf,monthColors,validColor,eventColor,prepareCSV,highlights,activeCategories,defaultCategories,openEditor,selectTab,parseWeek,monday,weeksIn,validateEvent,validatePlan,parseCSV,csv,texEscape,latex,makeScene,setPlan:p=>{plan=p;scene=makeScene()},getPlan:()=>plan};
+if(typeof module!=='undefined')module.exports={tangentialEvent,settingsSizing,showUnscheduled,addSubcategory,removeSubcategory,exampleCSV,loadExample,applyInlinePatch,hexToHsv,hsvToHex,resetDefaults,svgEventSegments,tangentRotation,categoryDisplayOrder,reorderCategory,openInOverleaf,monthColors,validColor,eventColor,prepareCSV,highlights,activeCategories,defaultCategories,openEditor,selectTab,parseWeek,monday,weeksIn,validateEvent,validatePlan,parseCSV,csv,texEscape,latex,makeScene,setPlan:p=>{plan=p;scene=makeScene()},getPlan:()=>plan};
