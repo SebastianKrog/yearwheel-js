@@ -31,3 +31,4 @@
 
 /* Compact event rows; printed event tables retain their existing spacing. */
 @media screen{.events{padding:18px 20px}.events-heading{margin-bottom:12px}.events th{padding:8px 10px;letter-spacing:.65px}.events td{padding:7px 10px;line-height:1.3}.events td button{padding:4px 8px}.events .edit-name{padding:0}.events .badge{padding:3px 6px}.events .dot{width:8px;height:8px;margin-right:5px}.events td small{margin-top:2px}.events .filters input,.events .filters select{padding:7px 9px}}
+.aside-bottom{display:grid;grid-template-columns:1fr 1fr;gap:7px}.aside-bottom #demo{grid-column:1/-1;justify-self:start}.aside-bottom #clear,.aside-bottom #reset-defaults{white-space:nowrap}
