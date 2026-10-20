@@ -107,6 +107,28 @@ $('categories').onchange({target:{dataset:{categoryField:'enabled'},checked:true
 $('categories').onchange({target:{dataset:{categoryField:'enabled'},checked:false,closest(){return {dataset:{category:'funding'}}}}});assert($('categories').innerHTML.includes('class="category-settings is-disabled"'));assert($('categories').innerHTML.includes('category-disabled-status">Disabled'));assert.equal(($('categories').innerHTML.match(/disabled title="Keep at least two/g)||[]).length,2);
 
 
+
+// SVG lanes shrink only the portions where events actually overlap.
+const svgPlan=base({ringSelectionExplicit:true,events:[
+ {category:'funding',date:1,end_date:6,name:'Long span'},
+ {category:'funding',date:3,end_date:4,name:'Overlap'},
+ {category:'funding',date:8,name:'Isolated point'},
+ {category:'conference',date:15,name:'Conference'}
+]});a.setPlan(svgPlan);const originalSvgData=JSON.stringify(a.getPlan()),exportBeforeScene=a.latex();
+const fundingEvents=svgPlan.events.filter(e=>e.category==='funding');const local=a.svgEventSegments(fundingEvents,1,53);
+assert.deepEqual(local.get(fundingEvents[0].id).map(x=>[x.start,x.end,x.count]),[[1,3,1],[3,5,2],[5,7,1]]);
+assert.equal(local.get(fundingEvents[2].id)[0].count,1);
+const svgScene=a.makeScene(),shapesFor=e=>svgScene.filter(o=>o.type==='poly'&&o.id===e.id),radialWidth=shape=>{const rs=shape.pts.map(([x,y])=>Math.hypot(x-500,y-500));return Math.max(...rs)-Math.min(...rs)};
+assert.deepEqual(shapesFor(fundingEvents[0]).map(radialWidth).map(x=>Math.round(x)),[96,47,96]);assert.equal(Math.round(radialWidth(shapesFor(fundingEvents[2])[0])),96);
+const spanLabel=svgScene.find(o=>o.type==='text'&&o.id===fundingEvents[0].id),spanAngle=(Math.atan2(spanLabel.x-500,500-spanLabel.y)*180/Math.PI+360)%360;
+assert(Math.abs(spanLabel.rotate-a.tangentRotation(spanAngle))<1e-7);
+const pointLabel=svgScene.find(o=>o.type==='text'&&o.id===fundingEvents[2].id);assert(Math.abs(pointLabel.rotate-spanLabel.rotate)>1,'Single-week labels remain radial.');
+assert.equal(a.latex(),exportBeforeScene);assert.equal(JSON.stringify(a.getPlan()),originalSvgData,'Rendering must not mutate the saved plan.');
+// Reset appearance defaults without clearing or rescheduling any events.
+svgPlan.categories.reverse();svgPlan.categories[0].name='Custom name';svgPlan.categories[0].color='#123456';svgPlan.labelSize=16;svgPlan.start=1;svgPlan.end=20;svgPlan.center='Custom centre';svgPlan.highlightGroups=[{weeks:'12',color:'#ff0000'}];a.setPlan(svgPlan);
+const retainedEvents=JSON.stringify(a.getPlan().events);$('reset-defaults').onclick();
+assert.deepEqual(a.getPlan().categories,a.defaultCategories());assert.equal(a.getPlan().labelSize,11);assert.equal(JSON.stringify(a.getPlan().events),retainedEvents);assert.equal(a.getPlan().end,20);assert.equal(a.getPlan().center,'Custom centre');assert.equal(a.getPlan().highlightGroups[0].weeks,'12');
+
 // Startup must restore an old saved plan before rendering (including migrations).
 const bootPrelude=fs.readFileSync(__filename,'utf8').split("const a=require")[0];
 const savedOld={year:2026,center:'2026',start:1,end:53,events:[{category:'conference',date:5,name:'Saved sentinel',color:'darkblue'}]};

@@ -68,6 +68,19 @@ $('highlight-groups').onclick=e=>{const b=e.target.closest('[data-remove-group]'
 const monthColors=['#dfeaf2','#dff0f0','#dff0e8','#e7f1df','#f0f2df','#f6efdf','#f5e7df','#f3e1e4','#f0dfe9','#eadff0','#e2dff2','#dfe5f2'];
 function point(r,a){return [500+r*Math.sin(a*Math.PI/180),500-r*Math.cos(a*Math.PI/180)]}
 function sector(ri,ro,a,b){const n=Math.max(2,Math.ceil((b-a)/2)),v=[];for(let i=0;i<=n;i++)v.push(point(ro,a+(b-a)*i/n));for(let i=n;i>=0;i--)v.push(point(ri,a+(b-a)*i/n));return v}
+
+function tangentRotation(angle){return ((angle+90)%180+180)%180-90}
+// Subdivide only where the active set changes; compact lanes locally so a
+// collision in one week cannot shrink unrelated events elsewhere in the ring.
+function svgEventSegments(events,start,end){
+  const cuts=[...new Set(events.flatMap(e=>[Math.max(start,e.start),Math.min(end,e.end)+1]))].sort((a,b)=>a-b),result=new Map(events.map(e=>[e.id,[]]));
+  for(let i=0;i<cuts.length-1;i++){
+    const a=cuts[i],b=cuts[i+1],active=events.filter(e=>e.start<b&&e.end>=a);
+    active.forEach((e,lane)=>{const segments=result.get(e.id),last=segments.at(-1);if(last&&last.end===a&&last.lane===lane&&last.count===active.length)last.end=b;else segments.push({start:a,end:b,lane,count:active.length})});
+  }
+  return result;
+}
+
 function makeScene(){const s=[],n=plan.end-plan.start+1,angle=x=>1+358*(x-plan.start)/n;
 const poly=(pts,fill,stroke='#ffffff',width=.7,id=null)=>s.push({type:'poly',pts,fill,stroke,width,id});
 const text=(x,y,value,size=10,fill='#52675c',rotate=0,weight=false,id=null)=>s.push({type:'text',x,y,value,size,fill,rotate,weight,id});
@@ -75,14 +88,38 @@ const radial=(r,a,value,size,fill,rot=0,weight=false,id=null)=>{const [x,y]=poin
 const h=highlights();
 const active=activeCategories();for(const [index,config] of active.entries()){const key=config.id,c={...config,r:(3-active.length+index)*108+108};
 for(let w=plan.start;w<=plan.end;w++)poly(sector(c.r,c.r+98,angle(w),angle(w+1)),c.color,'#ffffff',.7);
-const events=plan.events.filter(e=>e.category===key&&e.start<=plan.end&&e.end>=plan.start).sort((a,b)=>a.start-b.start||b.end-a.end),ends=[];
-for(const e of events){let lane=ends.findIndex(x=>x<e.start);if(lane<0)lane=ends.length;ends[lane]=e.end;e._lane=lane}
-const thick=98/Math.max(1,ends.length);
-for(const e of events){const a=angle(Math.max(e.start,plan.start))+.22,b=angle(Math.min(e.end,plan.end)+1)-.22,ri=c.r+e._lane*thick+1,ro=ri+thick-2;poly(sector(ri,ro,a,b),eventColor(e),'#ffffff',1,e.id);const mid=(a+b)/2,rotation=mid>180?mid-270:mid-90;const num=plan.events.indexOf(e)+1;const limit=Math.max(2,Math.floor((thick-9)/(plan.labelSize*.55))),room=((ri+ro)/2)*(b-a)*Math.PI/180-6,maxLines=Math.max(1,Math.min(4,Math.floor(room/(plan.labelSize*1.15))));let lines=[],remaining=`${num}. ${e.name}`;while(remaining&&lines.length<maxLines){if(remaining.length<=limit){lines.push(remaining);remaining='';break}let cut=remaining.lastIndexOf(' ',limit);if(cut<limit*.4)cut=limit;lines.push(remaining.slice(0,cut));remaining=remaining.slice(cut).trim()}if(remaining)lines[lines.length-1]=lines.at(-1).slice(0,Math.max(1,limit-1))+'…';if(thick<25)lines=[String(num)];const [cx,cy]=point((ri+ro)/2,mid),rr=rotation*Math.PI/180;lines.forEach((line,i)=>{const dy=(i-(lines.length-1)/2)*plan.labelSize*1.15;text(cx-Math.sin(rr)*dy,cy+Math.cos(rr)*dy,line,plan.labelSize,labelColor(eventColor(e)),rotation,false,e.id)})}
+
+const events=plan.events.filter(e=>e.category===key&&e.start!==null&&e.start<=plan.end&&e.end>=plan.start).sort((a,b)=>a.start-b.start||b.end-a.end),segments=svgEventSegments(events,plan.start,plan.end);
+for(const e of events){
+  let labelSegment=null;
+  for(const segment of segments.get(e.id)){
+    const thick=98/segment.count,a=angle(segment.start)+.22,b=angle(segment.end)-.22,ri=c.r+segment.lane*thick+1,ro=ri+thick-2;
+    poly(sector(ri,ro,a,b),eventColor(e),'#ffffff',1,e.id);
+    const area=(b-a)*thick;if(!labelSegment||area>labelSegment.area)labelSegment={a,b,ri,ro,thick,area};
+  }
+  if(!labelSegment)continue;
+  const {a,b,ri,ro,thick}=labelSegment,mid=(a+b)/2,tangential=e.end>e.start;
+  const rotation=tangential?tangentRotation(mid):(mid>180?mid-270:mid-90),num=plan.events.indexOf(e)+1;
+  const arcRoom=((ri+ro)/2)*(b-a)*Math.PI/180-6;
+  const width=tangential?arcRoom:thick-9,height=tangential?thick-8:arcRoom;
+  const limit=Math.max(2,Math.floor(width/(plan.labelSize*.55))),maxLines=Math.max(1,Math.min(4,Math.floor(height/(plan.labelSize*1.15))));
+  let lines=[];const explicit=(`${num}. ${e.name}`).split(/\\\\|\r?\n/);
+  for(let part=0;part<explicit.length;part++){
+    let remaining=explicit[part];
+    do{
+      if(lines.length>=maxLines){if(lines.length)lines[lines.length-1]=lines.at(-1).slice(0,Math.max(1,limit-1))+'…';break}
+      if(remaining.length<=limit){lines.push(remaining);remaining=''}else{let cut=remaining.lastIndexOf(' ',limit);if(cut<limit*.4)cut=limit;lines.push(remaining.slice(0,cut));remaining=remaining.slice(cut).trim()}
+    }while(remaining);
+    if(lines.length>=maxLines&&(remaining||part<explicit.length-1)){lines[lines.length-1]=lines.at(-1).slice(0,Math.max(1,limit-1))+'…';break}
+  }
+  if(thick<25||width<15)lines=[String(num)];
+  const [cx,cy]=point((ri+ro)/2,mid),rr=rotation*Math.PI/180;
+  lines.forEach((line,i)=>{const dy=(i-(lines.length-1)/2)*plan.labelSize*1.15;text(cx-Math.sin(rr)*dy,cy+Math.cos(rr)*dy,line,plan.labelSize,labelColor(eventColor(e)),rotation,false,e.id)});
+}
 radial(c.r+103.5,180,c.name,8,'#6e8176');}
-for(let w=plan.start;w<=plan.end;w++){const mid=angle(w+.5),p1=point(427,angle(w)),p2=point(448,angle(w));s.push({type:'line',pts:[p1,p2],stroke:'#cbd5cd',width:.6});radial(439,mid,String(w),9,h.get(w)||'#5f7467',0,h.has(w));}
+for(let w=plan.start;w<=plan.end;w++){const mid=angle(w+.5),p1=point(427,angle(w)),p2=point(448,angle(w));s.push({type:'line',pts:[p1,p2],stroke:'#cbd5cd',width:.6});radial(439,mid,String(w),9,h.get(w)||'#5f7467',tangentRotation(mid),h.has(w));}
 const begin=monday(plan.year,plan.start),finish=monday(plan.year,plan.end+1),ms=604800000;
-for(let y=begin.getUTCFullYear();y<=finish.getUTCFullYear();y++)for(let m=0;m<12;m++){const a=Math.max(+begin,Date.UTC(y,m,1)),b=Math.min(+finish,Date.UTC(y,m+1,1));if(a>=b)continue;const aa=angle(plan.start+(a-begin)/ms),bb=angle(plan.start+(b-begin)/ms);poly(sector(455,481,aa,bb),monthColors[m],'#d7dfd3',.6);if(bb-aa>7)radial(469,(aa+bb)/2,new Date(Date.UTC(y,m,1)).toLocaleDateString('en',{month:bb-aa<18?'short':'long',timeZone:'UTC'}),10,'#425e4c');}
+for(let y=begin.getUTCFullYear();y<=finish.getUTCFullYear();y++)for(let m=0;m<12;m++){const a=Math.max(+begin,Date.UTC(y,m,1)),b=Math.min(+finish,Date.UTC(y,m+1,1));if(a>=b)continue;const aa=angle(plan.start+(a-begin)/ms),bb=angle(plan.start+(b-begin)/ms);poly(sector(455,481,aa,bb),monthColors[m],'#d7dfd3',.6);if(bb-aa>7)radial(469,(aa+bb)/2,new Date(Date.UTC(y,m,1)).toLocaleDateString('en',{month:bb-aa<18?'short':'long',timeZone:'UTC'}),10,'#425e4c',tangentRotation((aa+bb)/2));}
 text(500,493,plan.center,40,'#294e3e',0,true);text(500,523,'YEAR PLAN',9,'#8b9c8e');return s}
 function svgString(){return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" role="img" aria-label="${esc(plan.title)}"><title>${esc(plan.title)}</title><rect width="1000" height="1000" fill="white"/>`+scene.map(o=>{const attrs=o.id?` class="event" data-id="${o.id}" tabindex="0" role="button" aria-label="${esc(plan.events.find(e=>e.id===o.id)?.name||'Edit event')}"`:'';const tip=o.id?`<title>${esc((()=>{const e=plan.events.find(e=>e.id===o.id);return `${e.name} · W${e.start}–${e.end} · ${dateRange(e.start,e.end)}`})())}</title>`:'';if(o.type==='poly')return `<polygon points="${o.pts.map(p=>p.join(',')).join(' ')}" fill="${o.fill}" stroke="${o.stroke}" stroke-width="${o.width}"${attrs}>${tip}</polygon>`;if(o.type==='line')return `<line x1="${o.pts[0][0]}" y1="${o.pts[0][1]}" x2="${o.pts[1][0]}" y2="${o.pts[1][1]}" stroke="${o.stroke}" stroke-width="${o.width}"/>`;return `<text x="${o.x}" y="${o.y}" text-anchor="middle" dominant-baseline="central" font-family="Arial,sans-serif" font-size="${o.size}" font-weight="${o.weight?600:400}" fill="${o.fill}" transform="rotate(${o.rotate},${o.x},${o.y})"${attrs}>${tip}${esc(o.value)}</text>`}).join('')+'</svg>'}
 function render(){scene=makeScene();$('wheel').innerHTML=svgString();$('preview-title').textContent=plan.title;$('range').textContent=`${plan.year} · Weeks ${plan.start}–${plan.end} · ${dateRange(plan.start,plan.end)}`;$('total').textContent=plan.events.length;const disabled=plan.events.filter(e=>!categoryMap()[e.category].enabled).length,visible=plan.events.filter(e=>categoryMap()[e.category].enabled&&e.start<=plan.end&&e.end>=plan.start).length;$('count').textContent=`${visible} of ${plan.events.length} events in view${disabled?' · '+disabled+' disabled':''}${plan.events.some(e=>e.start===null)?' · '+plan.events.filter(e=>e.start===null).length+' unscheduled':''}`;renderRows()}
@@ -100,6 +137,18 @@ $('event-color-mode').onchange=updateColorMode;
 $('add').onclick=()=>openEditor();for(const k of ['close','cancel'])$(k).onclick=()=>$('editor').close();$('event-form').onsubmit=e=>{e.preventDefault();try{const ev=validateEvent({name:$('event-name').value,category:$('event-category').value,subcategory:$('event-subcategory').value,start:$('unscheduled').checked?null:$('event-start').value,end:$('unscheduled').checked?null:$('event-end').value,color:$('event-color-mode').value==='normal'?'':$('event-color-mode').value==='highlight'?'highlight':$('event-color').value,notes:$('event-notes').value},weeksIn(plan.year));if(editId){ev.id=editId;plan.events=plan.events.map(x=>x.id===editId?ev:x)}else plan.events.push(ev);save();render();$('editor').close()}catch(err){toast(err.message)}};
 $('delete').onclick=()=>{plan.events=plan.events.filter(e=>e.id!==editId);save();render();$('editor').close();toast('Event deleted')};$('wheel').onclick=e=>{const x=e.target.closest('[data-id]');if(x)openEditor(x.dataset.id)};$('wheel').onkeydown=e=>{if(['Enter',' '].includes(e.key)&&e.target.dataset.id){e.preventDefault();openEditor(e.target.dataset.id)}};
 $('rows').onclick=e=>{const copyButton=e.target.closest('[data-copy]');if(copyButton){const v=plan.events.find(x=>x.id===copyButton.dataset.copy),copy={...v,id:crypto.randomUUID(),name:v.name+' (copy)'};plan.events.push(copy);save();render();openEditor(copy.id);return}const row=e.target.closest('[data-event]');if(row)openEditor(row.dataset.event)};$('search').oninput=renderRows;$('filter').onchange=renderRows;
+
+function resetDefaults(){
+  const fresh=defaultCategories(),custom=plan.categories.filter(c=>!fresh.some(d=>d.id===c.id));
+  plan.categories=fresh.map(d=>{
+    const old=plan.categories.find(c=>c.id===d.id)||custom.shift();
+    const extra=(old?.subcategories||[]).filter(sub=>!d.subcategories.some(x=>x.id===sub.id));
+    return {...d,id:old?.id||d.id,subcategories:[...d.subcategories,...extra]};
+  });
+  plan.labelSize=11;plan.ringSelectionExplicit=true;save();sync();toast('Default category names, order, colours and label size restored.');
+}
+$('reset-defaults').onclick=resetDefaults;
+
 $('clear').onclick=()=>{if(plan.events.length&&confirm('Remove all events from this plan? Export a backup first if needed.')){plan.events=[];save();render()}};
 $('demo').onclick=()=>{if(plan.events.length&&!confirm('Replace your events with the example plan?'))return;plan.title='Example annual plan';plan.categories=defaultCategories();plan.events=[['activity',4,10,'Project development'],['activity',18,18,'Team workshop'],['activity',36,42,'Evaluation'],['funding',8,19,'Funding call'],['funding',12,24,'Research grant'],['conference',23,23,'Summer conference'],['conference',41,42,'Annual meeting']].map(([category,start,end,name])=>validateEvent({category,start,end,name},weeksIn(plan.year)));save();sync()};
 function download(content,name,type){const url=URL.createObjectURL(new Blob([content],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
@@ -253,4 +302,4 @@ for(const name of ['wheel','events']){$(name+'-tab').onclick=()=>selectTab(name)
 function openInOverleaf(){$('overleaf-source').value=encodeURIComponent(latex());$('overleaf-form').submit()}
 $('export').onclick=()=>{$('exports').hidden=!$('exports').hidden};document.addEventListener('click',e=>{if(!e.target.closest('#exports')&&!e.target.closest('#export'))$('exports').hidden=true});$('exports').onclick=e=>{const type=e.target.dataset.export;if(!type)return;$('exports').hidden=true;const name=`yearwheel-${plan.year}`;if(type==='tex')download(latex(),name+'.tex','application/x-tex');if(type==='overleaf')openInOverleaf();if(type==='svg')download(svgString(),name+'.svg','image/svg+xml');if(type==='csv')download(csv(plan.events),name+'.csv','text/csv;charset=utf-8');if(type==='json')download(JSON.stringify(plan,null,2),name+'.json','application/json');if(type==='print')window.print()};$('print').onclick=()=>window.print();sync();
 let printFilters;window.addEventListener('beforeprint',()=>{printFilters=[$('search').value,$('filter').value];$('search').value='';$('filter').value='';renderRows()});window.addEventListener('afterprint',()=>{if(printFilters){[$('search').value,$('filter').value]=printFilters;renderRows()}});
-if(typeof module!=='undefined')module.exports={categoryDisplayOrder,reorderCategory,openInOverleaf,monthColors,validColor,eventColor,prepareCSV,highlights,activeCategories,defaultCategories,openEditor,selectTab,parseWeek,monday,weeksIn,validateEvent,validatePlan,parseCSV,csv,texEscape,latex,makeScene,setPlan:p=>{plan=p;scene=makeScene()},getPlan:()=>plan};
+if(typeof module!=='undefined')module.exports={resetDefaults,svgEventSegments,tangentRotation,categoryDisplayOrder,reorderCategory,openInOverleaf,monthColors,validColor,eventColor,prepareCSV,highlights,activeCategories,defaultCategories,openEditor,selectTab,parseWeek,monday,weeksIn,validateEvent,validatePlan,parseCSV,csv,texEscape,latex,makeScene,setPlan:p=>{plan=p;scene=makeScene()},getPlan:()=>plan};

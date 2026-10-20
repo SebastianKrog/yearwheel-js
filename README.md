@@ -13,7 +13,8 @@ Browser-based replacement for the supplied R/Shiny annual wheel generator. No bu
 - Light month colours progress from reddish purple in September through purple and blue to bluish green in March.
 - ISO week spans; LaTeX retains the original template’s week-end domain convention and three radial sub-bands.
 - Correct 52/53-week ISO calendars, actual month boundaries and clipped partial-year spans.
-- Dynamic collision-free event lanes in each category; numbered wheel labels refer to the full event list.
+- SVG event lanes share ring width only where events overlap; isolated events and non-overlapping portions of spans use full-width slices. Span labels follow the tangent; single-week labels remain radial. Month and week labels also follow their ring tangent. Numbered wheel labels refer to the event list. These layout changes do not alter the LaTeX generator.
+- Reset defaults beside Clear events restores default category order, names, palettes and label size while preserving events, dates, highlighted weeks and the centre label. Event rows use compact screen spacing; print spacing is retained.
 - Local browser storage, complete JSON backup/restore and CSV import/export. Nothing is synced between browsers.
 - Export menu begins with Download .tex and Open in Overleaf. The Overleaf action posts the current UTF-8 source to the documented https://www.overleaf.com/docs endpoint in a new tab using encoded_snip, without a public file upload. It creates a new Overleaf project; it does not update an existing project.
 - Vector SVG overview export and original-style standalone `wheelchart` LaTeX export for pdfLaTeX in Overleaf. The TeX uses the supplied main.tex geometry, original named palette and the shared pastel month gradient, rotated full event labels, date/week rings and arrow-shaped months. Category settings and week highlight groups are applied to the template. Two categories omit the smallest ring. The SVG remains the simpler clickable overview.
