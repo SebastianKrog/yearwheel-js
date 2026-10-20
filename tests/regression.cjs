@@ -13,7 +13,7 @@ p.highlightGroups=[{weeks:'2-4',color:'#ff0000'},{weeks:'4, 8',color:'#0000ff'}]
 const restored=base(JSON.parse(JSON.stringify(p)));assert.deepEqual(restored.categories,p.categories);assert.deepEqual(restored.highlightGroups,p.highlightGroups);assert.equal(restored.events[0].color,'highlight');
 const before=p.events.map(e=>[e.name,e.start,e.end,e.color]);const round=a.prepareCSV(a.csv(p.events));assert.deepEqual(round.events.map(e=>[e.name,e.start,e.end,e.color]),before);
 a.setPlan(base());const custom=a.prepareCSV('category,date,name,color\nClinical,5,A,highlight\nTeaching,6,B,');assert.equal(custom.categories[0].name,'Clinical');assert.equal(custom.categories[1].name,'Teaching');assert.equal(custom.events[0].category,'activity');assert.equal(a.prepareCSV('date,name\n4,No category').events[0].category,'activity');assert.throws(()=>a.prepareCSV('category,date,name\na,1,A\nb,2,B\nc,3,C\nd,4,D'));
-a.setPlan(base({...custom}));const id=a.getPlan().events[0].id;$('rows').onclick({target:{closest(selector){return selector==='[data-event]'?{dataset:{event:id}}:null}}});assert.equal($('editor').open,true);assert.equal($('event-name').value,'A');assert.equal($('event-color-mode').value,'highlight');
+a.setPlan(base({...custom}));const id=a.getPlan().events[0].id;$('rows').onclick({target:{closest(selector){return selector==='[data-modal-edit]'?{dataset:{modalEdit:id}}:null}}});assert.equal($('editor').open,true);assert.equal($('event-name').value,'A');assert.equal($('event-color-mode').value,'highlight');
 // Editor lists are outer-to-inner while saved category arrays preserve old inner-to-outer order.
 const ordered=base({events:[{category:'activity',date:5,name:'Activity ring',color:'highlight'},{category:'funding',date:6,name:'Funding ring'},{category:'conference',date:7,name:'Conference ring'}]});a.setPlan(ordered);
 assert.deepEqual(a.categoryDisplayOrder().map(c=>c.id),['conference','funding','activity']);
@@ -132,6 +132,16 @@ assert.deepEqual(a.getPlan().categories,a.defaultCategories());assert.equal(a.ge
 // Picker colour conversions retain original hex values, including neutral colours.
 for(const hex of [...a.monthColors,'#54b8b4','#9879ce','#ffffff','#000000','#808080'])assert.equal(a.hsvToHex(a.hexToHsv(hex)),hex);
 for(const hex of a.monthColors)assert(a.hexToHsv(hex).s>.5,'Month fills retain strong saturation.');
+
+// Inline saves validate atomically, keep stable IDs and update every export.
+a.setPlan(base({events:[{category:'conference',subcategory:'purple',date:5,name:'Before',color:'highlight',notes:'Keep notes'}]}));
+const inlineId=a.getPlan().events[0].id;a.applyInlinePatch(inlineId,{name:'After\nline break'});assert.equal(a.getPlan().events[0].id,inlineId);assert.equal(a.getPlan().events[0].notes,'Keep notes');assert(a.csv(a.getPlan().events).includes('After\nline break'));assert(a.latex().includes(String.raw`After\\line break`));
+const inlineBeforeInvalid=JSON.stringify(a.getPlan());assert.throws(()=>a.applyInlinePatch(inlineId,{start:8,end:7}));assert.equal(JSON.stringify(a.getPlan()),inlineBeforeInvalid);
+a.applyInlinePatch(inlineId,{start:'2026-02-02',end:'2026-02-15'});assert.equal(a.getPlan().events[0].start,6);assert.equal(a.getPlan().events[0].end,7);
+a.applyInlinePatch(inlineId,{category:'funding'});assert.equal(a.getPlan().events[0].category,'funding');assert.equal(a.getPlan().events[0].subcategory,undefined);assert.equal(a.getPlan().events[0].color,'highlight');
+a.applyInlinePatch(inlineId,{start:null,end:null});assert.equal(a.getPlan().events[0].start,null);assert.equal(a.getPlan().events[0].end,null);
+assert.throws(()=>a.applyInlinePatch(inlineId,{name:' '}));assert.throws(()=>a.applyInlinePatch('missing',{name:'No event'}));
+
 // Startup must restore an old saved plan before rendering (including migrations).
 const bootPrelude=fs.readFileSync(__filename,'utf8').split("const a=require")[0];
 const savedOld={year:2026,center:'2026',start:1,end:53,events:[{category:'conference',date:5,name:'Saved sentinel',color:'darkblue'}]};
