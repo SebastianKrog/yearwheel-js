@@ -49,7 +49,7 @@ a.setPlan(templatePlan);let tex=a.latex();
 for(const token of [String.raw`\documentclass[border=6pt]{standalone}`,String.raw`\usepackage{wheelchart}`,String.raw`arc data expand=f`,String.raw`plot={{#1}:{#2+0*(450-#1)}}`,String.raw`wheel data style={align=center,rotate=\WCmidangle+(\WCmidangle<90?0:(\WCmidangle<270?180:0))}`, 'radius={2.5}{4.3}','radius={4.4}{4.8}','radius={4.9}{6.7}','radius={6.8}{7.1}','radius={7.2}{9}','radius={9.1}{9.5}','radius={9.7}{10.1}','radius={10.1}{10.5}','radius={10.6}{11.1}','total count=53','slices arrow={1}{0}','gap polar=-4','gap radius=0.02',String.raw`middle={\fontsize{48}{60}\selectfont2026}`])assert(tex.includes(token),token);
 assert(!/longtable|newpage|Unscheduled sentinel/.test(tex));
 assert(tex.includes(String.raw`Interne\\Midler\\Second, A/\allowbreak{}B \& 50\%\_\{x\}`));
-assert(tex.includes(String.raw`domain/.expanded=\wcdomain{2/53}{5/53}`));
+assert(tex.includes(String.raw`domain/.expanded=\wcdomain{1/53}{5/53}`));
 for(const r of ['radius={4.9}{5.5}','radius={5.5}{6.1}','radius={6.1}{6.7}'])assert(tex.includes(r));
 assert(tex.includes(']{{Grant, A/B}}'));
 assert(tex.includes('29/4,5/11,12/18'));assert(tex.includes('28/3}'));assert(tex.includes('51,52,53}'));
@@ -148,8 +148,28 @@ const savedOld={year:2026,center:'2026',start:1,end:53,events:[{category:'confer
 const bootCheck=bootPrelude+'\nglobal.localStorage.getItem=()=>'+JSON.stringify(JSON.stringify(savedOld))+';\nconst restoredApp=require('+JSON.stringify(require.resolve('../dist/app.js'))+');assert.equal(restoredApp.getPlan().events[0]?.name,"Saved sentinel");assert.equal(restoredApp.getPlan().categories[2].subcategories.length,2);assert.equal(restoredApp.getPlan().events[0].color,"#5893c1");';
 require('node:child_process').execFileSync(process.execPath,['-e',bootCheck]);
 
+// Canonical CSV schema, optional columns, inclusive endpoints and migrated fixture.
+a.setPlan(base());
+assert.deepEqual(a.parseCSV('name\nUndated')[0],{name:'Undated'});
+assert.equal(a.prepareCSV('name\nUndated').events[0].start,null);
+assert.throws(()=>a.parseCSV('name,name\nA,B'),/Duplicate/);
+const newCSV=a.prepareCSV('name,category,subcategory,start,end,color,notes\n"Two\nlines",Conferences,Purple,2,4,highlight,"A, note"');
+assert.equal(newCSV.events[0].end,4);assert.equal(newCSV.events[0].name,'Two\nlines');
+a.setPlan(base(newCSV));
+assert(a.csv(a.getPlan().events).startsWith('\ufeffname,category,subcategory,start,end,color,notes\r\n'));
+assert.deepEqual(a.prepareCSV(a.csv(a.getPlan().events)).events.map(({id,...e})=>e),a.getPlan().events.map(({id,...e})=>e));
+const fixture=a.prepareCSV(fs.readFileSync(require('node:path').join(__dirname,'../examples/yearwheeltest.csv'),'utf8'));
+assert.equal(fixture.events.length,42);
+for(const name of ['KB','Knæk Cancer','Novo Nordisk']){const e=fixture.events.find(e=>e.name===name);assert.equal(e.start,2);assert.equal(e.end,4)}
+a.setPlan(base());const example=a.prepareCSV(a.exampleCSV());assert.equal(example.events.length,14);
+a.loadExample();assert.equal(a.getPlan().highlightGroups.length,2);assert.deepEqual(a.getPlan().categories,a.defaultCategories());
+assert(a.getPlan().events.some(e=>e.name.includes('\n')));assert(a.getPlan().events.some(e=>e.start===null));
+assert(a.getPlan().events.some(e=>e.subcategory==='purple'));assert(a.getPlan().events.some(e=>e.color==='highlight'));assert(a.getPlan().events.some(e=>e.color.startsWith('#')));
+console.log('Passed canonical CSV, inclusive spans, migrated fixture and feature-rich standard-palette example checks.');
+
 a.setPlan(base({...custom}));
 (async()=>{let confirmations=0;global.confirm=()=>{confirmations++;return false};$('replace').checked=true;$('file').files=[{name:'test.csv',size:100,text:async()=>'category,date,name,color\nClinical,5,Replacement,red'}];await $('file').onchange();assert.equal(confirmations,1);assert.equal(a.getPlan().events[0].name,'A');global.confirm=()=>true;await $('file').onchange();assert.equal(a.getPlan().events.length,1);assert.equal(a.getPlan().events[0].name,'Replacement');$('replace').checked=false;await $('file').onchange();assert.equal(a.getPlan().events.length,2);
 // Produce a representative two-ring export for compilation and visual QA.
 const cfg=a.defaultCategories();cfg[0].name='Research & grants';cfg[0].color='#d7eeed';cfg[0].highlight='#54b8b4';cfg[1].enabled=false;
 const final=base({categories:cfg,highlightGroups:[{weeks:'12,24-26',color:'red'},{weeks:'32-35',color:'steelblue'}],events:[{category:'activity',date:5,end_date:12,name:'Research project',color:'highlight'},{category:'conference',date:24,name:'Annual meeting',color:'steelblue'},{category:'conference',date:40,name:'Workshop',color:''}]});a.setPlan(final);if(process.env.YEARWHEEL_QA_TEX)fs.writeFileSync(process.env.YEARWHEEL_QA_TEX,a.latex());console.log('Passed editor/calendar regressions and original wheelchart export, multiline labels, three-band spans, partial ranges, category ordering/exclusion, and identical Overleaf source checks.');})().catch(e=>{console.error(e);process.exitCode=1});
+
