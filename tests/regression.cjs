@@ -270,6 +270,24 @@ a.setPlan(base({monthStyle:'arrows'}));const arrowPoints=a.monthSector(455,481,0
 assert.equal(base().monthColor,'rainbow');assert.equal(base().monthStyle,'arrows');assert.equal(base({monthColor:'invalid',monthStyle:'invalid'}).monthColor,'rainbow');
 a.setPlan(base());$('monthColor').value='black';$('monthColor').listeners.change();assert.equal(a.getPlan().monthColor,'black');$('monthStyle').value='plain';$('monthStyle').listeners.change();assert.equal(a.getPlan().monthStyle,'plain');a.resetDefaults();assert.equal(a.getPlan().monthColor,'rainbow');assert.equal(a.getPlan().monthStyle,'arrows');
 
+// Highlight dates preserve week ranges, share calendar validation, and include range endpoints.
+for(const date of ['2/2','2.2','2/2/2026','2-2-2026','2.2.2026','2026/2/2','2026-2-2','2026.2.2']){
+  assert.equal(a.parseWeek(date,2026),6,date);assert.deepEqual(a.parseHighlights(date,2026),[6],date);
+}
+for(const range of ['2/2 to 16/2','2/2–16/2','2/2-16/2','2-2-2026 - 16-2-2026','2026-2-2-2026-2-16','2026.2.2 .. 2026.2.16'])assert.deepEqual(a.parseHighlights(range,2026),[6,7,8],range);
+assert.deepEqual(a.parseHighlights('12, 24–26, 2/2 to 16/2, 2/2',2026),[6,7,8,12,24,25,26]);
+assert.deepEqual(a.parseHighlights('2-5',2026),[2,3,4,5]);
+assert.deepEqual(a.parseHighlights('1/2 to 2/2',2026),[5,6]); // Sunday through Monday.
+assert.deepEqual(a.parseHighlights('2025/12/20 to 2026/1/5',2026),[1,2]);
+assert.deepEqual(a.parseHighlights('2026/12/28 to 2027/1/10',2026),[53]);
+assert.deepEqual(a.parseHighlights('29/2',2028),[9]);
+for(const bad of ['31/2','29/2/2026','2026/13/1','2/2 to 1/2','1/2 to','12,','2025/6/1'])assert.throws(()=>a.parseHighlights(bad,2026),undefined,bad);
+// Validate using the imported wheel year, independent of the current wheel.
+a.setPlan(base());const dates= a.validatePlan({year:2028,start:1,end:52,events:[],highlightGroups:[{weeks:'29/2',color:'red'}]});a.setPlan(dates);assert(a.highlights().has(9));
+a.setPlan(base({highlightGroups:[{weeks:'2/2 to 16/2',color:'red'},{weeks:'16/2',color:'blue'}]}));assert.equal(a.highlights().get(8),'#0000ff');assert.equal(a.highlights().get(6),'#ff0000');assert(a.latex().includes('ff0000'));
+const infoHtml=fs.readFileSync(require('node:path').join(__dirname,'../dist/index.html'),'utf8');for(const id of ['category-info','weeks-info','orientation-info']){assert(infoHtml.includes('data-info="'+id+'"'));assert(infoHtml.includes('id="'+id+'" class="info-popover" popover="auto"'))}
+console.log('Passed flexible dates, inclusive periods, ISO boundaries and compact help controls.');
+
 // Startup must restore an old saved plan before rendering (including migrations).
 const bootPrelude=fs.readFileSync(__filename,'utf8').split("const a=require")[0];
 const savedOld={year:2026,center:'2026',start:1,end:53,events:[{category:'conference',date:5,name:'Saved sentinel',color:'darkblue'}]};
