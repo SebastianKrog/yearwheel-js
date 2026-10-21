@@ -285,6 +285,7 @@ for(const bad of ['31/2','29/2/2026','2026/13/1','2/2 to 1/2','1/2 to','12,','20
 // Validate using the imported wheel year, independent of the current wheel.
 a.setPlan(base());const dates= a.validatePlan({year:2028,start:1,end:52,events:[],highlightGroups:[{weeks:'29/2',color:'red'}]});a.setPlan(dates);assert(a.highlights().has(9));
 a.setPlan(base({highlightGroups:[{weeks:'2/2 to 16/2',color:'red'},{weeks:'16/2',color:'blue'}]}));assert.equal(a.highlights().get(8),'#0000ff');assert.equal(a.highlights().get(6),'#ff0000');assert(a.latex().includes('ff0000'));
+a.setPlan(base());a.openEditor();$('event-name').value='Date input';$('event-start').value='2/2';$('event-end').value='16.2.2026';$('event-end').oninput();assert($('event-dates').textContent.includes('Weeks 6–8'));$('event-form').onsubmit({preventDefault(){}});assert.equal(a.getPlan().events[0].start,6);assert.equal(a.getPlan().events[0].end,8);
 const infoHtml=fs.readFileSync(require('node:path').join(__dirname,'../dist/index.html'),'utf8');for(const id of ['category-info','weeks-info','orientation-info']){assert(infoHtml.includes('data-info="'+id+'"'));assert(infoHtml.includes('id="'+id+'" class="info-popover" popover="auto"'))}
 console.log('Passed flexible dates, inclusive periods, ISO boundaries and compact help controls.');
 
