@@ -276,16 +276,14 @@ for(const ring of ['outer','middle','inner']){
   field.addEventListener('input',()=>update(false));
   field.addEventListener('change',()=>update(true));
 }
-function openEditor(id=null){editId=id;const e=plan.events.find(x=>x.id===id);$('dialog-title').textContent=e?'Edit event':'Add event';$('event-name').value=e?.name||'';$('event-category').value=e?.category||plan.categories.find(c=>c.enabled).id;updateSubcategories(e?.subcategory||'');$('event-start').value=e?.start||plan.start;$('event-end').value=e?.end||plan.start;$('event-start').max=$('event-end').max=weeksIn(plan.year);$('event-color-mode').value=!e?.color||e.color==='highlight'?'normal':'custom';$('event-color').value=e?.color&&e.color!=='highlight'?e.color:eventPalette({category:$('event-category').value,subcategory:$('event-subcategory').value}).color;updateColorMode();$('event-notes').value=e?.notes||'';$('event-orientation').value=e?.orientation||'auto';$('unscheduled').checked=!!e&&e.start===null;updateSchedule();$('delete').hidden=!e;updateDates();$('editor').showModal();$('event-name').focus()}
-function updateSchedule(){for(const id of ['event-start','event-end']){$(id).disabled=$('unscheduled').checked;$(id).required=!$('unscheduled').checked}updateDates()}
-$('unscheduled').onchange=updateSchedule;
-function updateDates(){if($('unscheduled').checked){$('event-dates').textContent='Unscheduled events stay in the list until you assign a week.';return}try{const a=parseWeek($('event-start').value,plan.year),b=parseWeek($('event-end').value,plan.year);$('event-dates').textContent=a>=1&&b>=a&&b<=weeksIn(plan.year)?`Weeks ${a}${a===b?'':'–'+b} · ${dateRange(a,b)}`:'Enter a week number or date for each endpoint.'}catch{$('event-dates').textContent='Use a week number, D/M, D/M/YYYY or YYYY/M/D.'}}
+function openEditor(id=null){editId=id;const e=plan.events.find(x=>x.id===id);$('dialog-title').textContent=e?'Edit event':'Add event';$('event-name').value=e?.name||'';$('event-category').value=e?.category||plan.categories.find(c=>c.enabled).id;updateSubcategories(e?.subcategory||'');$('event-start').value=e?.start??'';$('event-end').value=e?.end??'';$('event-color-mode').value=!e?.color||e.color==='highlight'?'normal':'custom';$('event-color').value=e?.color&&e.color!=='highlight'?e.color:eventPalette({category:$('event-category').value,subcategory:$('event-subcategory').value}).color;updateColorMode();$('event-notes').value=e?.notes||'';$('event-orientation').value=e?.orientation||'auto';$('delete').hidden=!e;updateDates();$('editor').showModal();$('event-name').focus()}
+function updateDates(){try{const a=parseWeek($('event-start').value,plan.year),end=parseWeek($('event-end').value,plan.year),b=end??a;if(a===null&&end===null){$('event-dates').textContent='Leave both weeks blank to keep this event unscheduled.';return}if(a===null){$('event-dates').textContent='Enter a start week or clear the end week to leave this event unscheduled.';return}$('event-dates').textContent=a>=1&&b>=a&&b<=weeksIn(plan.year)?`Weeks ${a}${a===b?'':'–'+b} · ${dateRange(a,b)}`:'Enter a valid week range; a blank end uses the start week.'}catch{$('event-dates').textContent='Use a week number, D/M, D/M/YYYY or YYYY/M/D.'}}
 $('event-start').oninput=()=>{try{const a=parseWeek($('event-start').value,plan.year),b=parseWeek($('event-end').value,plan.year);if(a&&b&&b<a)$('event-end').value=$('event-start').value}catch{}updateDates()};$('event-end').oninput=updateDates;$('event-category').onchange=()=>{updateSubcategories();updateColorMode()};$('event-subcategory').onchange=updateColorMode;
 function updateSubcategories(value=''){const c=categoryMap()[$('event-category').value],subs=c?.subcategories||[];$('event-subcategory-row').hidden=false;$('event-subcategory').disabled=!subs.length;$('event-subcategory').innerHTML='<option value="">None</option>'+subs.map(sub=>`<option value="${esc(sub.id)}">${esc(sub.name)}</option>`).join('');$('event-subcategory').value=value}
 function updateColorMode(){const mode=$('event-color-mode').value;$('custom-color').hidden=mode!=='custom'}
 $('event-color-mode').onchange=updateColorMode;
 
-$('add').onclick=()=>openEditor();for(const k of ['close','cancel'])$(k).onclick=()=>$('editor').close();$('event-form').onsubmit=e=>{e.preventDefault();try{const ev=validateEvent({name:$('event-name').value,category:$('event-category').value,subcategory:$('event-subcategory').value,start:$('unscheduled').checked?null:$('event-start').value,end:$('unscheduled').checked?null:$('event-end').value,color:$('event-color-mode').value==='normal'?'':$('event-color').value,notes:$('event-notes').value,orientation:$('event-orientation').value},weeksIn(plan.year));if(editId){ev.id=editId;plan.events=plan.events.map(x=>x.id===editId?ev:x)}else plan.events.push(ev);save();render();$('editor').close()}catch(err){toast(err.message)}};
+$('add').onclick=()=>openEditor();for(const k of ['close','cancel'])$(k).onclick=()=>$('editor').close();$('event-form').onsubmit=e=>{e.preventDefault();try{const ev=validateEvent({name:$('event-name').value,category:$('event-category').value,subcategory:$('event-subcategory').value,start:$('event-start').value,end:$('event-end').value,color:$('event-color-mode').value==='normal'?'':$('event-color').value,notes:$('event-notes').value,orientation:$('event-orientation').value},weeksIn(plan.year));if(editId){ev.id=editId;plan.events=plan.events.map(x=>x.id===editId?ev:x)}else plan.events.push(ev);save();render();$('editor').close()}catch(err){toast(err.message)}};
 $('delete').onclick=()=>{plan.events=plan.events.filter(e=>e.id!==editId);save();render();$('editor').close();toast('Event deleted')};$('wheel').onclick=e=>{const x=e.target.closest('[data-id]');if(x)openEditor(x.dataset.id)};$('wheel').onkeydown=e=>{if(['Enter',' '].includes(e.key)&&e.target.dataset.id){e.preventDefault();openEditor(e.target.dataset.id)}};
 
 function applyInlinePatch(id,patch){
@@ -363,7 +361,7 @@ function exampleCSV(){
     ['Project delivery','Activities','',18,25,'','Overlaps with the review during weeks 22–23.'],
     ['Review','Activities','',22,23,'#dc974f','Custom orange event colour; overlaps with Project delivery.'],
     ['Evaluation','Activities','',38,41,'','Default category event colour.'],
-    ['Budget review','Activities','','','','','Date not yet decided.'],
+    ['Budget review','Activities','','','','','Both week fields are blank, so this event is unscheduled.'],
     ['Funding call','Funding','',8,12,'','Default funding event colour.'],
     ['Research grant','Funding','',10,14,'highlight','Overlapping funding span.'],
     ['Application deadline','Funding','',date(16),'','darkyellow','ISO date input with an original palette colour name.'],
@@ -371,7 +369,7 @@ function exampleCSV(){
     ['Registration deadline','Conferences','Blue',18,'','highlight','Blue subcategory event colour.'],
     ['Annual meeting','Conferences','Purple',40,41,'highlight','Purple subcategory event colour.'],
     ['Abstract\nsubmission','Conferences','Purple',34,'','','Purple subcategory event colour and multiline label.'],
-    ['Conference to be confirmed','Conferences','Blue','','','','Unscheduled event remains in the list.']
+    ['Conference to be confirmed','Conferences','Blue','','','','Leave both weeks blank to keep this event in the list without plotting it.']
   ]);
 }
 function loadExample(){

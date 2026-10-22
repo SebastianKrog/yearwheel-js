@@ -58,3 +58,5 @@ Event label size defaults to 14, centred on the 8–20 slider range. The old def
 Compact month controls choose Rainbow (default), White, Grey or Black fills and Arrows (default) or Plain headers. SVG and TeX use the same options and readable contrasting month text. JSON backups retain both choices.
 
 Highlighted week groups accept comma-separated week numbers/ranges, single dates, and inclusive date periods. Examples: `12, 24–28, 15/6`, `1/6 to 15/6`, or `2026-06-01 – 2026-06-15`. Dates support D/M, D/M/YYYY and YYYY/M/D, using `/`, `-` or `.` consistently within a date. Omitted years use the wheel year. A two-number hyphen expression such as `2-5` remains a week range; write `2/5` or `2.5` for 2 May. Periods highlight all touched weeks within the wheel’s ISO year. Single dates must belong to that ISO year. These date formats also work in event CSV start/end fields.
+
+In the event editor, both week fields are optional: leave both blank for an unscheduled event. A start with a blank end makes a single-week event. An end without a start is rejected. New events start with blank week fields; editing an unscheduled event preserves those blanks.
