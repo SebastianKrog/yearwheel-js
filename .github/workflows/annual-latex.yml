@@ -1,8 +1,9 @@
 name: Refresh annual LaTeX example
 on:
   schedule:
-    # January 1 at 03:00 Europe/Copenhagen (CET = UTC+1).
-    - cron: '0 2 1 1 *'
+    # Monthly keepalive check; images render only in January.
+    # January 1 at 02:00 UTC is 03:00 Europe/Copenhagen.
+    - cron: '0 2 1 * *'
   workflow_dispatch:
     inputs:
       year:
@@ -27,14 +28,50 @@ concurrency:
   group: annual-latex-${{ github.ref }}
   cancel-in-progress: false
 jobs:
-  render:
+  calendar:
     if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    outputs:
+      render: ${{ steps.route.outputs.render }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Choose annual render or lightweight keepalive
+        id: route
+        run: echo "render=$(node -p "require('./scripts/export-latex-example.cjs').shouldRender(process.env.GITHUB_EVENT_NAME)")" >> "$GITHUB_OUTPUT"
+      - name: Keep the annual schedule active during quiet months
+        if: github.event_name == 'schedule'
+        run: |
+          LAST_COMMIT=$(git log -1 --format=%ct)
+          CURRENT_TIME=$(date +%s)
+          if [ "$((CURRENT_TIME - LAST_COMMIT))" -lt 1814400 ]; then
+            echo 'Recent repository activity; no keepalive needed.'
+            exit 0
+          fi
+          git fetch origin main
+          if [ "$(git rev-parse origin/main)" != "$(git rev-parse HEAD)" ]; then
+            echo 'New activity during this check; no keepalive needed.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit --allow-empty -m 'Keep annual example schedule active [skip ci]'
+          git push origin HEAD:main
+  render:
+    needs: calendar
+    if: needs.calendar.outputs.render == 'true' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: main
+      - name: Record source revision
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
@@ -99,7 +136,7 @@ jobs:
       - name: Publish both annual example images
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.publish)
         env:
-          RENDER_SHA: ${{ github.sha }}
+          RENDER_SHA: ${{ steps.source.outputs.sha }}
         run: |
           git fetch origin main
           if [ "$(git rev-parse origin/main)" != "$RENDER_SHA" ]; then

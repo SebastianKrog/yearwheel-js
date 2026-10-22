@@ -69,4 +69,4 @@ Pushes to `main` run checks and publish `dist/` to GitHub Pages. Set **Settings 
 
 The website screenshot refreshes automatically after app changes. Documentation-only pushes and any push containing a website screenshot edit skip capture; a separate annual job refreshes the final LaTeX image each January 1 at 03:00 Danish time, then captures the webpage using the same new year and commits both images together. The annual workflow also offers a manual preview, with publishing off by default.
 
-GitHub may delay scheduled runs and disables schedules in public repositories after 60 days of repository inactivity.
+A lightweight monthly check keeps the annual schedule active: if there has been no commit for 21 days, it creates an empty keepalive commit. Quiet months do not render images. GitHub may delay scheduled runs.

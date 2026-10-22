@@ -2,6 +2,7 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const {webcrypto}=require('node:crypto');
 function currentYear(now=new Date()){return Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Copenhagen',year:'numeric'}).format(now))}
+function shouldRender(event,now=new Date()){return event!=='schedule'||new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Copenhagen',month:'2-digit'}).format(now)==='01'}
 function exampleSource(year){
   if(!Number.isInteger(year)||year<1900||year>2100)throw Error('Year must be 1900–2100.');
   // The editor's own exporter, run with an empty, isolated DOM. This uses the
@@ -20,4 +21,4 @@ if(require.main===module){
     const result=exampleSource(year);fs.mkdirSync(output,{recursive:true});fs.writeFileSync(path.join(output,'yearwheel.tex'),result.tex);fs.writeFileSync(path.join(output,'example.json'),JSON.stringify({year:result.year,weeks:result.weeks,events:result.events},null,2)+'\n');console.log(`Generated default example for ${year} (${result.weeks} ISO weeks).`);
   }catch(error){console.error(error.message);process.exitCode=1}
 }
-module.exports={currentYear,exampleSource};
+module.exports={currentYear,shouldRender,exampleSource};
