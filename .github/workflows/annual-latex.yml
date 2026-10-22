@@ -1,0 +1,120 @@
+name: Refresh annual LaTeX example
+on:
+  schedule:
+    # January 1 at 03:00 Europe/Copenhagen (CET = UTC+1).
+    - cron: '0 2 1 1 *'
+  workflow_dispatch:
+    inputs:
+      year:
+        description: 'Example year (blank = current year in Denmark)'
+        required: false
+        type: string
+      publish:
+        description: 'Update both README images (otherwise preview only)'
+        required: false
+        type: boolean
+        default: false
+  # Validate maintenance changes without publishing a new image.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/annual-latex.yml'
+      - 'scripts/export-latex-example.cjs'
+      - 'tests/annual-latex.cjs'
+permissions:
+  contents: read
+concurrency:
+  group: annual-latex-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  render:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Verify calendar rollover and app export
+        run: |
+          node tests/annual-latex.cjs
+          node tests/regression.cjs
+      - name: Export default example for the selected year
+        env:
+          EXAMPLE_YEAR: ${{ inputs.year }}
+        run: |
+          if [ -z "$EXAMPLE_YEAR" ] && [ "$GITHUB_EVENT_NAME" = push ]; then
+            EXAMPLE_YEAR=$(node -p "require('./scripts/export-latex-example.cjs').currentYear()+1")
+          fi
+          if [ -n "$EXAMPLE_YEAR" ]; then
+            node scripts/export-latex-example.cjs --year "$EXAMPLE_YEAR"
+          else
+            node scripts/export-latex-example.cjs
+          fi
+      - name: Compile final wheel with pdfLaTeX
+        uses: xu-cheng/latex-action@v4
+        with:
+          working_directory: build/annual-latex
+          root_file: yearwheel.tex
+          texlive_version: '2026'
+          compiler: pdflatex
+          args: '-interaction=nonstopmode -halt-on-error -file-line-error'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Render README image
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+          python3 -m pip install Pillow==11.3.0
+          pdftoppm -singlefile -scale-to 1500 -png build/annual-latex/yearwheel.pdf build/annual-latex/yearwheel
+          python3 - <<'PY'
+          from PIL import Image
+          Image.open('build/annual-latex/yearwheel.png').convert('RGB').save('build/annual-latex/yearwheel-latex.webp', 'WEBP', quality=88, method=6)
+          PY
+      - name: Install webpage capture tools
+        run: |
+          npm install --no-save --package-lock=false playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Capture webpage after LaTeX using the same year
+        run: |
+          SCREENSHOT_YEAR=$(node -p "require('./build/annual-latex/example.json').year")
+          export SCREENSHOT_YEAR
+          export SCREENSHOT_OUTPUT=build/annual-latex/yearwheel-screenshot.webp
+          node scripts/capture-screenshot.cjs
+      - name: Upload preview and source
+        uses: actions/upload-artifact@v4
+        with:
+          name: annual-latex-example
+          path: |
+            build/annual-latex/yearwheel.tex
+            build/annual-latex/yearwheel.pdf
+            build/annual-latex/yearwheel-latex.webp
+            build/annual-latex/yearwheel-screenshot.webp
+            build/annual-latex/example.json
+          if-no-files-found: error
+      - name: Publish both annual example images
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.publish)
+        env:
+          RENDER_SHA: ${{ github.sha }}
+        run: |
+          git fetch origin main
+          if [ "$(git rev-parse origin/main)" != "$RENDER_SHA" ]; then
+            echo 'Branch changed during rendering; leaving the newer commit untouched.'
+            exit 0
+          fi
+          cp build/annual-latex/yearwheel-latex.webp docs/yearwheel-latex.webp
+          cp build/annual-latex/yearwheel-screenshot.webp docs/yearwheel-screenshot.webp
+          if git diff --quiet -- docs/yearwheel-latex.webp docs/yearwheel-screenshot.webp; then
+            echo 'Example images are unchanged.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          EXAMPLE_YEAR=$(node -p "require('./build/annual-latex/example.json').year")
+          git add -- docs/yearwheel-latex.webp docs/yearwheel-screenshot.webp
+          git commit -m "Refresh annual examples for $EXAMPLE_YEAR [skip ci]"
+          git push origin HEAD:main

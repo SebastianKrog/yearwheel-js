@@ -5,6 +5,9 @@ const fs=require('node:fs/promises');
 const path=require('node:path');
 const {execFileSync}=require('node:child_process');
 async function capture(){
+  const year=Number(process.env.SCREENSHOT_YEAR||new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Copenhagen',year:'numeric'}).format(new Date()));
+  if(!Number.isInteger(year)||year<1900||year>2100)throw Error('Screenshot year must be 1900–2100.');
+  const output=process.env.SCREENSHOT_OUTPUT?path.resolve(process.env.SCREENSHOT_OUTPUT):path.resolve(__dirname,'../docs/yearwheel-screenshot.webp');
   const root=path.resolve(__dirname,'../dist');
   const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml'};
   const server=createServer(async(req,res)=>{
@@ -22,19 +25,19 @@ async function capture(){
     const page=await browser.newPage({viewport:{width:1364,height:936},deviceScaleFactor:1,locale:'en-GB',timezoneId:'UTC',colorScheme:'light',reducedMotion:'reduce'});
     const errors=[];page.on('pageerror',error=>errors.push(error.message));
     // Fix the example year for reproducible images; allow timers to run normally.
-    await page.addInitScript(()=>{const OriginalDate=Date;window.Date=class extends OriginalDate{constructor(...args){super(...(args.length?args:['2026-06-15T12:00:00Z']))}static now(){return OriginalDate.parse('2026-06-15T12:00:00Z')}}});
+    await page.addInitScript(date=>{const OriginalDate=Date;window.Date=class extends OriginalDate{constructor(...args){super(...(args.length?args:[date]))}static now(){return OriginalDate.parse(date)}}},`${year}-06-15T12:00:00Z`);
     await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:'networkidle'});
     await page.getByRole('button',{name:'Load example',exact:true}).click();
     await page.getByRole('img',{name:'Example annual plan',exact:true}).waitFor();
     await page.getByText('12 of 14 events in view',{exact:false}).waitFor();
     await page.evaluate(()=>document.fonts.ready);
     await page.mouse.move(1350,925);
-    await fs.mkdir(path.resolve(__dirname,'../docs'),{recursive:true});
-    const png=path.resolve(__dirname,'../docs/.yearwheel-screenshot.png');
+    await fs.mkdir(path.dirname(output),{recursive:true});
+    const png=output+'.png';
     await page.screenshot({path:png,animations:'disabled',caret:'hide'});
     if(errors.length)throw Error(errors.join('\n'));
     // Keep the existing README asset and leave the final LaTeX image untouched.
-    execFileSync('python3',['-c',"from PIL import Image; import sys; Image.open(sys.argv[1]).convert('RGB').save(sys.argv[2], 'WEBP', quality=85, method=6)",png,path.resolve(__dirname,'../docs/yearwheel-screenshot.webp')]);
+    execFileSync('python3',['-c',"from PIL import Image; import sys; Image.open(sys.argv[1]).convert('RGB').save(sys.argv[2], 'WEBP', quality=85, method=6)",png,output]);
     await fs.unlink(png);
   }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve))}
 }

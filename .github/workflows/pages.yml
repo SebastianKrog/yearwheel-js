@@ -21,6 +21,7 @@ jobs:
         run: |
           node tests/regression.cjs
           node tests/screenshot-policy.cjs
+          node tests/annual-latex.cjs
   deploy:
     if: github.event_name != 'pull_request'
     needs: test
