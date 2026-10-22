@@ -18,7 +18,9 @@ jobs:
       - name: Check JavaScript
         run: node --check dist/app.js
       - name: Run regression checks
-        run: node tests/regression.cjs
+        run: |
+          node tests/regression.cjs
+          node tests/screenshot-policy.cjs
   deploy:
     if: github.event_name != 'pull_request'
     needs: test

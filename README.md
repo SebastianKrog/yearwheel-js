@@ -66,3 +66,5 @@ node tests/regression.cjs
 ```
 
 Pushes to `main` run checks and publish `dist/` to GitHub Pages. Set **Settings → Pages → Source** to **GitHub Actions**.
+
+The website screenshot refreshes automatically after app changes. Documentation-only pushes and any push containing a website screenshot edit skip capture; the final LaTeX image is maintained manually.

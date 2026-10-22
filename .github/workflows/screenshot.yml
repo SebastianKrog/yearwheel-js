@@ -1,0 +1,74 @@
+name: Update website screenshot
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dist/**'
+      - 'scripts/capture-screenshot.cjs'
+      - 'scripts/screenshot-policy.cjs'
+      - '.github/workflows/screenshot.yml'
+permissions:
+  contents: read
+concurrency:
+  group: website-screenshot-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  eligibility:
+    runs-on: ubuntu-24.04
+    outputs:
+      capture: ${{ steps.policy.outputs.capture }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Skip any push containing a screenshot change
+        id: policy
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+        run: echo "capture=$(node scripts/screenshot-policy.cjs)" >> "$GITHUB_OUTPUT"
+  screenshot:
+    needs: eligibility
+    if: needs.eligibility.outputs.capture == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Check app
+        run: |
+          node --check dist/app.js
+          node tests/regression.cjs
+          node tests/screenshot-policy.cjs
+      - name: Install screenshot tools
+        run: |
+          npm install --no-save --package-lock=false playwright@1.56.1
+          npx playwright install --with-deps chromium
+          python3 -m pip install Pillow==11.3.0
+      - name: Capture default example from this commit
+        run: node scripts/capture-screenshot.cjs
+      - name: Commit website screenshot if changed and still current
+        env:
+          CAPTURE_SHA: ${{ github.sha }}
+        run: |
+          git fetch origin main
+          if [ "$(git rev-parse origin/main)" != "$CAPTURE_SHA" ]; then
+            echo 'Branch changed during capture; leaving the newer commit untouched.'
+            exit 0
+          fi
+          if git diff --quiet -- docs/yearwheel-screenshot.webp; then
+            echo 'Website screenshot is unchanged.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- docs/yearwheel-screenshot.webp
+          git commit -m 'Update website example screenshot [skip ci]'
+          git push origin HEAD:main
