@@ -6,6 +6,10 @@ Create an annual plan with editable category rings, ISO weeks, and a live wheel 
 
 ![Yearwheel showing the example plan and settings](docs/yearwheel-screenshot.webp)
 
+**LaTeX / Overleaf output** — the same example plan:
+
+![Final LaTeX PDF render of the example annual plan](docs/yearwheel-latex.webp)
+
 ## Use it
 
 1. Choose a year and **Load example**, add events, or import a CSV/JSON file.
@@ -43,10 +47,6 @@ Imports replace existing events by default, with confirmation. Uncheck **Replace
 ## Export
 
 **Open in Overleaf** creates a new project from the current `.tex` source. Compile with **pdfLaTeX** for the final wheelchart layout. The SVG is an interactive overview; **PDF/Print Draft** uses browser printing. CSV exports events; JSON includes the complete plan and settings.
-
-The same example plan, compiled from the exported LaTeX:
-
-![Final LaTeX PDF render of the example annual plan](docs/yearwheel-latex.webp)
 
 ## Run locally
 
