@@ -44,6 +44,10 @@ Imports replace existing events by default, with confirmation. Uncheck **Replace
 
 **Open in Overleaf** creates a new project from the current `.tex` source. Compile with **pdfLaTeX** for the final wheelchart layout. The SVG is an interactive overview; **PDF/Print Draft** uses browser printing. CSV exports events; JSON includes the complete plan and settings.
 
+The same example plan, compiled from the exported LaTeX:
+
+![Final LaTeX PDF render of the example annual plan](docs/yearwheel-latex.webp)
+
 ## Run locally
 
 No build step or dependencies are needed to serve the app:
