@@ -4,11 +4,13 @@ Create an annual plan with editable category rings, ISO weeks, and a live wheel 
 
 **[Open Yearwheel →](https://sebastiankrog.github.io/yearwheel-js/)**
 
-![Yearwheel showing the example plan and settings](docs/yearwheel-screenshot.webp)
-
-**LaTeX / Overleaf output** — the same example plan:
+**Final wheel — LaTeX / Overleaf output**
 
 ![Final LaTeX PDF render of the example annual plan](docs/yearwheel-latex.webp)
+
+**Editor preview**
+
+![Yearwheel showing the example plan and settings](docs/yearwheel-screenshot.webp)
 
 ## Use it
 
