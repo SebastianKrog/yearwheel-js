@@ -105,3 +105,7 @@ main{max-width:none;padding:12px 20px 0}.workspace{grid-template-columns:340px m
 .info-circle{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;width:15px;height:15px;padding:0;margin-left:4px;border:1px solid #81958b;border-radius:50%;background:transparent;color:#536d60;font:italic 600 10px Georgia,serif;line-height:1;text-transform:none;letter-spacing:0;cursor:help}.info-circle:hover,.info-circle[aria-expanded=true]{background:#e2ebe4;color:#264e39}.info-circle:focus-visible{outline:2px solid var(--green);outline-offset:2px}.info-popover{position:fixed;inset:auto;margin:0;box-sizing:border-box;max-width:calc(100vw - 24px);padding:11px 13px;border:1px solid #ccd8ce;border-radius:9px;background:#fffef9;color:#344b3d;box-shadow:0 5px 24px #233e3826;font:400 12px/1.5 Arial,sans-serif;text-transform:none;letter-spacing:0}.info-popover::backdrop{background:transparent}
 
 .preview-actions{display:flex;flex-direction:column;gap:5px;flex-shrink:0;align-items:stretch}
+
+/* All settings section headings share typography and help-icon alignment. */
+#wheel-settings .settings-heading{display:flex;align-items:center;gap:6px;font-family:inherit;font-size:1em;font-weight:650;line-height:1.5;letter-spacing:normal;color:var(--ink);margin:0 0 8px;padding:0}
+#wheel-settings .settings-heading .info-circle{margin:0;flex-shrink:0}
